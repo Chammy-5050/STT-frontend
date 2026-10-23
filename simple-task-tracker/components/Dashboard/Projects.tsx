@@ -34,7 +34,7 @@ export default function Projects({ tasks, onStatusChange }: Props) {
     <>
       <div className="breadcrumbs">Workspace <span>/</span> Projects</div>
       <div className="project-heading"><div className="project-identity"><div><h2>Project tasks</h2><p>Drag a task to another column to update its status.</p></div></div></div>
-      <p className="api-empty-state">Status changes are currently held in this page only. They will save to your account when the task API is connected.</p>
+      <p className="demo-banner">Drag tasks or change their status from the card menu. Updates are kept for this demo session.</p>
       <section className="board" aria-label="Task status board">
         {columns.map((status) => {
           const columnTasks = tasks.filter((task) => task.status === status);

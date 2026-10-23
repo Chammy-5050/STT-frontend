@@ -2,11 +2,13 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LockKeyhole, Mail, UserRound } from "lucide-react";
 import AuthLogo from "./AuthLogo";
 import LoadingView from "./LoadingView";
 
 export default function RegisterForm() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,9 +36,8 @@ export default function RegisterForm() {
       setMessage("Please meet all password requirements.");
       return;
     }
-    setMessage("Account creation is not connected to a service yet.");
     setLoading(true);
-    window.setTimeout(() => setLoading(false), 1800);
+    window.setTimeout(() => router.push("/"), 1300);
   }
 
   if (loading) return <LoadingView />;

@@ -2,16 +2,19 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import AuthLogo from "./AuthLogo";
 
 export default function LoginForm() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMessage("Sign-in is not connected to an account service yet.");
+    setMessage("Opening your demo workspace…");
+    window.setTimeout(() => router.push("/"), 450);
   }
 
   return (

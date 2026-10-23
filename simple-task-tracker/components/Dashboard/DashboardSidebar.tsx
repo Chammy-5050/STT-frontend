@@ -27,7 +27,7 @@ export default function DashboardSidebar({ activePage, onNavigate }: Props) {
         ))}
       </nav>
       <div className="workspace-block"><p className="side-label">Workspace</p><button className="workspace-pill" onClick={() => onNavigate("Projects")}><span className="workspace-dot" />Projects</button><button className="nav-item daily" onClick={() => onNavigate("Tasks")}><CalendarDays size={16} /><span>Daily Tasks</span></button></div>
-      <div className="sidebar-bottom"><p className="side-label">General</p><button className={`nav-item${activePage === "Settings" ? " selected" : ""}`} onClick={() => onNavigate("Settings")}><Settings size={17} /><span>Settings</span></button><button className="nav-item logout" disabled title="Sign in is not configured yet"><LogOut size={17} /><span>Logout</span></button></div>
+      <div className="sidebar-bottom"><p className="side-label">General</p><button className={`nav-item${activePage === "Settings" ? " selected" : ""}`} onClick={() => onNavigate("Settings")}><Settings size={17} /><span>Settings</span></button><a className="nav-item logout" href="/login"><LogOut size={17} /><span>Exit demo</span></a></div>
     </aside>
   );
 }

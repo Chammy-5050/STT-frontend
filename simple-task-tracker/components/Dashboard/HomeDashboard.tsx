@@ -8,6 +8,7 @@ import DashboardSidebar from "./DashboardSidebar";
 import Projects from "./Projects";
 import Settings from "./Settings";
 import Task from "./Task";
+import TaskDialog from "./TaskDialog";
 import { initialProjects, initialTasks } from "./taskData";
 import type { DashboardPage, TaskFilter, TaskItem } from "./types";
 
@@ -18,6 +19,7 @@ export default function HomeDashboard() {
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("All");
   const [search, setSearch] = useState("");
   const [darkTheme, setDarkTheme] = useState(false);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const visibleTasks = useMemo(() => tasks.filter((task) => `${task.title} ${task.description}`.toLowerCase().includes(search.toLowerCase())), [tasks, search]);
 
   function openTasks(filter: TaskFilter) {
@@ -29,26 +31,33 @@ export default function HomeDashboard() {
     setTasks((currentTasks) => currentTasks.map((task) => task.id === taskId ? { ...task, status } : task));
   }
 
+  function createTask(task: TaskItem) {
+    setTasks((currentTasks) => [task, ...currentTasks]);
+    setTaskFilter("All");
+    setSearch("");
+  }
+
   function renderPage() {
     switch (activePage) {
-      case "Dashboard": return <DashboardOverview projects={projects} tasks={tasks} onOpenProjects={() => setActivePage("Projects")} onSelectTaskFilter={openTasks} dataReady={false} />;
-      case "Tasks": return <Task tasks={visibleTasks} filter={taskFilter} onFilterChange={setTaskFilter} dataReady={false} />;
-      case "Projects": return <Projects tasks={tasks} onStatusChange={changeTaskStatus} />;
-      case "Calendar": return <Calendar />;
+      case "Dashboard": return <DashboardOverview projects={projects} tasks={tasks} onOpenProjects={() => setActivePage("Projects")} onSelectTaskFilter={openTasks} />;
+      case "Tasks": return <Task tasks={visibleTasks} filter={taskFilter} onFilterChange={setTaskFilter} onStatusChange={changeTaskStatus} />;
+      case "Projects": return <Projects tasks={visibleTasks} onStatusChange={changeTaskStatus} />;
+      case "Calendar": return <Calendar tasks={tasks} />;
       case "Settings": return <Settings darkTheme={darkTheme} onThemeChange={setDarkTheme} />;
     }
   }
 
-  const supportsTaskActions = activePage === "Tasks" || activePage === "Projects";
-  const supportsTaskSearch = activePage === "Tasks";
+  const supportsTaskActions = activePage !== "Settings";
+  const supportsTaskSearch = activePage === "Tasks" || activePage === "Projects";
 
   return (
     <main className={`app-shell${darkTheme ? " dark-theme" : ""}`}>
       <DashboardSidebar activePage={activePage} onNavigate={setActivePage} />
       <section className="main-area">
-        <DashboardHeader title={activePage} onSearch={supportsTaskSearch ? setSearch : undefined} showAddTask={supportsTaskActions} dataReady={false} onToggleTheme={() => setDarkTheme((current) => !current)} />
+        <DashboardHeader title={activePage} onSearch={supportsTaskSearch ? setSearch : undefined} showAddTask={supportsTaskActions} onAddTask={() => setTaskDialogOpen(true)} onToggleTheme={() => setDarkTheme((current) => !current)} onOpenSettings={() => setActivePage("Settings")} />
         <div className="page-content">{renderPage()}</div>
       </section>
+      {taskDialogOpen && <TaskDialog projects={projects} onClose={() => setTaskDialogOpen(false)} onCreate={createTask} />}
     </main>
   );
 }
