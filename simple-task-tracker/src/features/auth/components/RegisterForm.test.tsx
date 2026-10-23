@@ -45,7 +45,7 @@ describe("RegisterForm", () => {
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("shows the animated loading state and success prompt, then routes to login", async () => {
+  it("shows the loading state, then routes to sign in after registration", async () => {
     const user = userEvent.setup();
     let completeRegistration: (result: RegisterResponse) => void = () => {};
     mutateAsync.mockImplementation(
@@ -57,6 +57,7 @@ describe("RegisterForm", () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText("Full name"), "Morgan Lee");
+    await user.type(screen.getByLabelText("Phone number"), "+255700000100");
     await user.type(screen.getByLabelText("Email address"), "morgan@example.com");
     await user.type(screen.getByLabelText("Password"), "StrongPass1!");
     await user.type(screen.getByLabelText("Confirm password"), "StrongPass1!");
@@ -69,46 +70,25 @@ describe("RegisterForm", () => {
     expect(screen.getByLabelText("Password")).toBeDisabled();
 
     completeRegistration({
-      simulated: false,
       detail: "Account created successfully. Please sign in.",
     });
 
-    expect(
-      await screen.findByRole("dialog", { name: "Account created!" }),
-    ).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Go to sign in" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
 
-  it("discloses that mock registration does not save an account", async () => {
+  it("keeps the registration form open when the backend fails", async () => {
     const user = userEvent.setup();
-    mutateAsync.mockResolvedValueOnce({
-      simulated: true,
-      detail: "Demo registration simulated successfully. No account was saved.",
-    });
+    mutateAsync.mockRejectedValueOnce(new Error("Unavailable"));
     render(<RegisterForm />);
-
     await user.type(screen.getByLabelText("Full name"), "Morgan Lee");
+    await user.type(screen.getByLabelText("Phone number"), "+255700000100");
     await user.type(screen.getByLabelText("Email address"), "morgan@example.com");
     await user.type(screen.getByLabelText("Password"), "StrongPass1!");
     await user.type(screen.getByLabelText("Confirm password"), "StrongPass1!");
     await user.click(screen.getByRole("checkbox", { name: /terms and conditions/i }));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
-
-    expect(
-      await screen.findByRole("dialog", {
-        name: "Registration preview complete",
-      }),
-    ).toBeVisible();
-    expect(
-      screen.getByText(/This demo did not save an account/),
-    ).toBeVisible();
-    expect(mutateAsync).toHaveBeenCalledWith({
-      fullName: "Morgan Lee",
-      email: "morgan@example.com",
-      password: "StrongPass1!",
-      confirmPassword: "StrongPass1!",
-      termsAccepted: true,
-    });
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+    expect(replace).not.toHaveBeenCalled();
   });
 });

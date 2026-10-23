@@ -1,82 +1,111 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Calendar from "./Calendar";
 import DashboardHeader from "./DashboardHeader";
 import DashboardOverview from "./DashboardOverview";
 import DashboardSidebar from "./DashboardSidebar";
 import Projects from "./Projects";
+import Settings from "./Settings";
 import Task from "./Task";
 import TaskDialog from "./TaskDialog";
-import { demoUserNames, initialProjects, initialTasks } from "./taskData";
-import type { DashboardPage, DemoRole, TaskFilter, TaskItem } from "./types";
-import { findDemoAccount, getDemoTasks, saveDemoTasks } from "@/lib/demoAccounts";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { api, message, type ApiProject, type ApiTask } from "@/lib/api";
+import type { DashboardPage, ProjectDraft, ProjectItem, TaskDraft, TaskFilter, TaskItem, TaskStatus } from "./types";
+
+const statusToApi = { Pending: "pending", "In Progress": "in_progress", Done: "done" } as const;
+const statusToUi = { pending: "Pending", in_progress: "In Progress", done: "Done" } as const;
+const projectFromApi = (value: ApiProject): ProjectItem => ({ id: value.project_id, name: value.project_name, description: value.description || "" });
+const taskFromApi = (value: ApiTask): TaskItem => ({ id: value.task_id, title: value.task_name, description: value.description || "", status: statusToUi[value.status], projectId: value.project_id, dueDate: value.due_date || undefined, createdAt: value.created_at });
 
 export default function HomeDashboard() {
-  const [role, setRole] = useState<DemoRole>("user");
-  const [currentUserId, setCurrentUserId] = useState("demo@tasktracker.local");
-  const [currentUserName, setCurrentUserName] = useState("Demo User");
+  const router = useRouter();
+  const { user, loading, signOut } = useAuth();
+  const userId = user?.user_id;
   const [activePage, setActivePage] = useState<DashboardPage>("Projects");
-  const [projects, setProjects] = useState(initialProjects);
-  const [tasks, setTasks] = useState(initialTasks);
-  const [tasksReady, setTasksReady] = useState(false);
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("All");
   const [search, setSearch] = useState("");
   const [darkTheme, setDarkTheme] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
-  useEffect(() => {
-    const signedInRole = window.sessionStorage.getItem("stt-demo-role") === "admin" ? "admin" : "user";
-    const email = window.sessionStorage.getItem("stt-demo-email") ?? "demo@tasktracker.local";
-    const account = findDemoAccount(email);
-    setRole(signedInRole);
-    setCurrentUserId(email);
-    setCurrentUserName(account?.name ?? demoUserNames[email] ?? email);
-    setTasks(getDemoTasks(initialTasks));
-    setTasksReady(true);
-  }, []);
-  useEffect(() => {
-    if (tasksReady) saveDemoTasks(tasks);
-  }, [tasks, tasksReady]);
-
-  const roleTasks = useMemo(() => role === "admin" ? tasks : tasks.filter((task) => task.ownerId === currentUserId), [tasks, role, currentUserId]);
-  const visibleTasks = useMemo(() => roleTasks.filter((task) => `${task.title} ${task.description}`.toLowerCase().includes(search.toLowerCase())), [roleTasks, search]);
+  const [fetching, setFetching] = useState(true);
+  const [error, setError] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const visibleTasks = useMemo(() => tasks.filter((task) => `${task.title} ${task.description}`.toLowerCase().includes(search.toLowerCase())), [tasks, search]);
 
   function openTasks(filter: TaskFilter) {
     setTaskFilter(filter);
     setActivePage("Tasks");
   }
 
-  function changeTaskStatus(taskId: number, status: TaskItem["status"]) {
-    setTasks((currentTasks) => currentTasks.map((task) => task.id === taskId ? { ...task, status } : task));
+  const load = useCallback(async () => {
+    setFetching(true);
+    setError("");
+    try {
+      const result = await api<ApiProject[]>("/projects/");
+      const taskLists = await Promise.all(result.map(project => api<ApiTask[]>(`/projects/${project.project_id}/tasks/`)));
+      setProjects(result.map(projectFromApi));
+      setTasks(taskLists.flat().map(taskFromApi));
+    } catch (error) { setError(message(error)); }
+    finally { setFetching(false); }
+  }, []);
+
+  useEffect(() => {
+    if (!loading && !userId) router.replace("/login");
+    // The request updates loading state immediately before fetching workspace data.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (userId) void load();
+  }, [userId, loading, router, load]);
+
+  function logout() { signOut(); router.replace("/login"); }
+  async function changeTaskStatus(taskId: string, status: TaskStatus) {
+    const task = tasks.find(item => item.id === taskId);
+    if (!task) return;
+    try {
+      const updated = await api<ApiTask>(`/projects/${task.projectId}/tasks/${task.id}/`, { method: "PATCH", body: JSON.stringify({ status: statusToApi[status] }) });
+      setTasks(current => current.map(item => item.id === taskId ? taskFromApi(updated) : item));
+      setError("");
+    } catch (error) { setError(message(error)); }
   }
 
-  function createTask(task: TaskItem) {
-    setTasks((currentTasks) => [{ ...task, ownerId: currentUserId }, ...currentTasks]);
+  async function createProject(input: ProjectDraft) {
+    const result = projectFromApi(await api<ApiProject>("/projects/", { method: "POST", body: JSON.stringify({ project_name: input.name, description: input.description }) }));
+    setProjects(current => [...current, result]);
+    return result;
+  }
+
+  async function createTask(input: TaskDraft) {
+    const task = taskFromApi(await api<ApiTask>(`/projects/${input.projectId}/tasks/`, { method: "POST", body: JSON.stringify({ task_name: input.title, description: input.description, status: statusToApi[input.status], due_date: input.dueDate || null }) }));
+    setTasks((currentTasks) => [task, ...currentTasks]);
     setTaskFilter("All");
     setSearch("");
   }
 
   function renderPage() {
     switch (activePage) {
-      case "Admin": return <DashboardOverview projects={projects} tasks={roleTasks} isAdmin onOpenProjects={() => setActivePage("Projects")} onSelectTaskFilter={openTasks} />;
-      case "Dashboard": return <DashboardOverview projects={projects} tasks={roleTasks} onOpenProjects={() => setActivePage("Projects")} onSelectTaskFilter={openTasks} />;
-      case "Tasks": return <Task tasks={visibleTasks} filter={taskFilter} onFilterChange={setTaskFilter} onStatusChange={changeTaskStatus} showOwners={role === "admin"} />;
-      case "Projects": return <Projects projects={projects} tasks={visibleTasks} onCreateProject={(project) => setProjects((current) => [...current, project])} onStatusChange={changeTaskStatus} showOwners={role === "admin"} />;
-      case "Calendar": return <Calendar tasks={roleTasks} />;
+      case "Dashboard": return <DashboardOverview projects={projects} tasks={tasks} onOpenProjects={() => setActivePage("Projects")} onSelectTaskFilter={openTasks} />;
+      case "Tasks": return <Task tasks={visibleTasks} filter={taskFilter} onFilterChange={setTaskFilter} onStatusChange={changeTaskStatus} />;
+      case "Projects": return <Projects projects={projects} tasks={visibleTasks} onCreateProject={createProject} onStatusChange={changeTaskStatus} />;
+      case "Calendar": return <Calendar tasks={tasks} />;
+      case "Settings": return <Settings darkTheme={darkTheme} onThemeChange={setDarkTheme} />;
     }
   }
 
-  const supportsTaskActions = true;
+  const supportsTaskActions = activePage !== "Settings" && projects.length > 0 && !fetching;
   const supportsTaskSearch = activePage === "Tasks" || activePage === "Projects";
 
+  if (loading || !user) return <main className="empty-state" role="status">Loading your account…</main>;
   return (
     <main className={`app-shell${darkTheme ? " dark-theme" : ""}`}>
-      <DashboardSidebar activePage={activePage} onNavigate={setActivePage} role={role} />
+      <DashboardSidebar activePage={activePage} onNavigate={page => { setActivePage(page); setSidebarOpen(false); }} onDailyTasks={() => { openTasks("Today"); setSidebarOpen(false); }} onLogout={logout} open={sidebarOpen} />
+      {sidebarOpen && <button className="scrim" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
       <section className="main-area">
-        <DashboardHeader title={activePage} userName={currentUserName} onSearch={supportsTaskSearch ? setSearch : undefined} showAddTask={supportsTaskActions} onAddTask={() => setTaskDialogOpen(true)} onToggleTheme={() => setDarkTheme((current) => !current)} />
-        <div className="page-content">{renderPage()}</div>
+        <DashboardHeader title={activePage} user={user} tasks={tasks} onOpenMenu={() => setSidebarOpen(true)} onLogout={logout} onSearch={supportsTaskSearch ? setSearch : undefined} showAddTask={supportsTaskActions} onAddTask={() => setTaskDialogOpen(true)} onToggleTheme={() => setDarkTheme((current) => !current)} onOpenSettings={() => setActivePage("Settings")} />
+        <div className="page-content">{supportsTaskSearch && <label className="mobile-search search-box"><input placeholder="Search tasks" aria-label="Search tasks on mobile" onChange={event => setSearch(event.target.value)} /></label>}{error && <div className="api-error" role="alert">{error} <button className="text-button" onClick={() => void load()}>Retry</button></div>}{fetching ? <p role="status">Loading projects and tasks…</p> : renderPage()}</div>
       </section>
-      {taskDialogOpen && <TaskDialog projects={projects} ownerId={currentUserId} onClose={() => setTaskDialogOpen(false)} onCreate={createTask} />}
+      {taskDialogOpen && <TaskDialog projects={projects} onClose={() => setTaskDialogOpen(false)} onCreate={createTask} />}
     </main>
   );
 }

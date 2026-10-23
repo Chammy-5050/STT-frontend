@@ -19,6 +19,7 @@ export const registerSchema = z
       .trim()
       .min(2, "Enter your full name.")
       .max(100, "Your name must be 100 characters or fewer."),
+    phoneNo: z.string().trim().min(1, "Enter your phone number.").max(20, "Use 20 characters or fewer."),
     email: z
       .string()
       .trim()
@@ -32,7 +33,7 @@ export const registerSchema = z
       .regex(/[a-z]/, "Add a lowercase letter.")
       .regex(/[A-Z]/, "Add an uppercase letter.")
       .regex(/[0-9]/, "Add a number.")
-      .regex(/[^A-Za-z0-9]/, "Add a special character."),
+      .regex(/[^A-Za-z0-9\s]/, "Add a special character."),
     confirmPassword: z.string().min(1, "Confirm your password."),
     termsAccepted: z.boolean().refine((accepted) => accepted, {
       message: "Accept the Terms and Conditions to continue.",

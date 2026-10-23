@@ -3,6 +3,7 @@ import { registerSchema } from "@/features/auth/schemas";
 
 const validRegistration = {
   fullName: "Morgan Lee",
+  phoneNo: "+255700000100",
   email: "morgan@example.com",
   password: "StrongPass1!",
   confirmPassword: "StrongPass1!",

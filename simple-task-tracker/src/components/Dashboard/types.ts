@@ -1,23 +1,24 @@
 export type TaskStatus = "Pending" | "In Progress" | "Done";
-export type DemoRole = "admin" | "user";
 
 export type TaskItem = {
-  id: number;
+  id: string;
   title: string;
   description: string;
   status: TaskStatus;
-  projectId?: number;
+  projectId: string;
   dueDate?: string;
   createdAt?: string;
-  ownerId: string;
 };
 
 export type ProjectItem = {
-  id: number;
+  id: string;
   name: string;
   description: string;
 };
 
-export type TaskFilter = "All" | TaskStatus | "Overdue";
+export type TaskFilter = "All" | TaskStatus | "Overdue" | "Today";
 
-export type DashboardPage = "Admin" | "Dashboard" | "Tasks" | "Projects" | "Calendar";
+export type DashboardPage = "Dashboard" | "Tasks" | "Projects" | "Calendar" | "Settings";
+
+export type ProjectDraft = { name: string; description: string };
+export type TaskDraft = Omit<TaskItem, "id" | "createdAt">;

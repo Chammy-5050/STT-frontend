@@ -3,6 +3,8 @@ export type AuthFieldName =
   | "password"
   | "full_name"
   | "fullName"
+  | "phone_no"
+  | "phoneNo"
   | "password_confirm"
   | "confirmPassword"
   | "terms_accepted"
@@ -54,6 +56,8 @@ export function normalizeApiError(payload: unknown, status: number): ApiError {
     "password",
     "full_name",
     "fullName",
+    "phone_no",
+    "phoneNo",
     "password_confirm",
     "confirmPassword",
     "terms_accepted",

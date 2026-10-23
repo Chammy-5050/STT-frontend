@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiRequest } from "@/lib/api-client";
+import { ApiError } from "@/lib/api-client";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 
-const { replace } = vi.hoisted(() => ({
+const { replace, signIn } = vi.hoisted(() => ({
+  signIn: vi.fn(),
   replace: vi.fn(),
 }));
 
@@ -13,12 +14,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
 }));
 
-vi.mock("@/lib/api-client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/api-client")>();
-  return { ...actual, apiRequest: vi.fn() };
-});
-
-const apiRequestMock = vi.mocked(apiRequest);
+vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ signIn }) }));
+const apiRequestMock = signIn;
 
 function renderLoginForm() {
   const queryClient = new QueryClient({
@@ -77,18 +74,8 @@ describe("LoginForm", () => {
     await user.type(screen.getByLabelText("Password"), "valid-password");
     await user.click(screen.getByRole("button", { name: "Sign In" }));
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
-    expect(apiRequestMock).toHaveBeenCalledWith(
-      "/api/auth/login/",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({
-          email: "person@example.com",
-          password: "valid-password",
-          rememberMe: false,
-        }),
-      }),
-    );
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    expect(signIn).toHaveBeenCalledWith("person@example.com", "valid-password", false);
 
     replace.mockReset();
     apiRequestMock.mockRejectedValueOnce(
@@ -114,7 +101,7 @@ describe("LoginForm", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("redirects admin users to the admin task page", async () => {
+  it("redirects team administrators to the project and task workspace", async () => {
     const user = userEvent.setup();
     apiRequestMock.mockResolvedValueOnce({ user: { role: "admin" } });
     renderLoginForm();
@@ -123,6 +110,6 @@ describe("LoginForm", () => {
     await user.type(screen.getByLabelText("Password"), "valid-password");
     await user.click(screen.getByRole("button", { name: "Sign In" }));
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/tasks"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
   });
 });

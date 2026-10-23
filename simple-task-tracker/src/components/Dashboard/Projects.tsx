@@ -5,28 +5,26 @@ import { useState } from "react";
 import { MoreVertical, Plus } from "lucide-react";
 import ProjectDialog from "./ProjectDialog";
 import styles from "./Projects.module.css";
-import { demoUserNames } from "./taskData";
-import type { ProjectItem, TaskItem, TaskStatus } from "./types";
+import type { ProjectDraft, ProjectItem, TaskItem, TaskStatus } from "./types";
 
 type Props = {
   projects: ProjectItem[];
-  onCreateProject: (project: ProjectItem) => void;
+  onCreateProject: (project: ProjectDraft) => Promise<ProjectItem>;
   tasks: TaskItem[];
-  onStatusChange: (taskId: number, status: TaskStatus) => void;
-  showOwners?: boolean;
+  onStatusChange: (taskId: string, status: TaskStatus) => void;
 };
 
 const columns: TaskStatus[] = ["Pending", "In Progress", "Done"];
 
-export default function Projects({ projects, tasks, onCreateProject, onStatusChange, showOwners = false }: Props) {
+export default function Projects({ projects, tasks, onCreateProject, onStatusChange }: Props) {
   const [creatingProject, setCreatingProject] = useState(false);
-  const [selectedProject, setSelectedProject] = useState(0);
+  const [selectedProject, setSelectedProject] = useState("");
   const currentProject = projects.find((project) => project.id === selectedProject);
   const projectTasks = selectedProject ? tasks.filter((task) => task.projectId === selectedProject) : tasks;
-  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null);
 
-  function handleDragStart(event: DragEvent<HTMLElement>, taskId: number) {
+  function handleDragStart(event: DragEvent<HTMLElement>, taskId: string) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(taskId));
     setDraggingId(taskId);
@@ -34,7 +32,7 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
 
   function handleDrop(event: DragEvent<HTMLElement>, status: TaskStatus) {
     event.preventDefault();
-    const taskId = Number(event.dataTransfer.getData("text/plain"));
+    const taskId = event.dataTransfer.getData("text/plain");
     if (taskId) onStatusChange(taskId, status);
     setDraggingId(null);
     setDropTarget(null);
@@ -44,7 +42,7 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
     <>
       <div className="breadcrumbs">Workspace <span>/</span> Projects</div>
       <div className="project-heading"><div className="project-identity"><div><h2>{currentProject?.name ?? "Projects"}</h2><p>{currentProject?.description || "Manage your projects and keep every task moving."}</p></div></div><button className="primary-button" onClick={() => setCreatingProject(true)}><Plus size={15} />Create project</button></div>
-      <div className={styles.projectPicker}><label>Project<select value={selectedProject} onChange={(event) => setSelectedProject(Number(event.target.value))}><option value={0}>All projects</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><span>{projects.length} {projects.length === 1 ? "project" : "projects"} in your workspace</span></div>
+      <div className={styles.projectPicker}><label>Project<select value={selectedProject} onChange={(event) => setSelectedProject(event.target.value)}><option value="">All projects</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><span>{projects.length} {projects.length === 1 ? "project" : "projects"} in your workspace</span></div>
       <section className="board" aria-label="Task status board">
         {columns.map((status) => {
           const columnTasks = projectTasks.filter((task) => task.status === status);
@@ -70,7 +68,6 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
                     <span className="card-menu" aria-hidden="true"><MoreVertical size={17} /></span>
                     <h4>{task.title}</h4>
                     <p>{task.description}</p>
-                    {showOwners && <small className="task-owner">Assigned to {demoUserNames[task.ownerId] ?? task.ownerId}</small>}
                     {task.dueDate && <time className="task-due-date" dateTime={task.dueDate}>{task.dueDate.slice(0, 10)}</time>}
                     <label className="move-task-control">Move to
                       <select aria-label={`Move ${task.title} to another status`} value={task.status} onChange={(event) => onStatusChange(task.id, event.target.value as TaskStatus)}>
@@ -85,7 +82,7 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
           );
         })}
       </section>
-      {creatingProject && <ProjectDialog projects={projects} onClose={() => setCreatingProject(false)} onCreate={(project) => { onCreateProject(project); setSelectedProject(project.id); }} />}
+      {creatingProject && <ProjectDialog projects={projects} onClose={() => setCreatingProject(false)} onCreate={async (input) => { const project = await onCreateProject(input); setSelectedProject(project.id); return project; }} />}
     </>
   );
 }

@@ -1,11 +1,9 @@
 "use client";
 
 import {
-  useEffect,
   useRef,
   useState,
   type FormEvent,
-  type RefObject,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,10 +24,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api-client";
 import { authFieldVariants, authFieldsVariants } from "@/lib/motion";
-import {
-  useRegister,
-  type RegisterResponse,
-} from "@/features/auth/hooks/useRegister";
+import { useRegister } from "@/features/auth/hooks/useRegister";
 import {
   registerSchema,
   type RegisterFormValues,
@@ -47,7 +42,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { addDemoAccount, hashDemoPassword } from "@/lib/demoAccounts";
 
 const passwordRequirements = [
   { label: "8 or more characters", test: (value: string) => value.length >= 8 },
@@ -56,7 +50,7 @@ const passwordRequirements = [
   { label: "Number", test: (value: string) => /[0-9]/.test(value) },
   {
     label: "Special character",
-    test: (value: string) => /[^A-Za-z0-9]/.test(value),
+    test: (value: string) => /[^A-Za-z0-9\s]/.test(value),
   },
 ];
 
@@ -108,81 +102,18 @@ function CreatingOverlay({ reduceMotion }: { reduceMotion: boolean }) {
   );
 }
 
-function RegistrationSuccess({
-  response,
-  reduceMotion,
-  onContinue,
-  continueButtonRef,
-}: {
-  response: RegisterResponse;
-  reduceMotion: boolean;
-  onContinue: () => void;
-  continueButtonRef: RefObject<HTMLButtonElement | null>;
-}) {
-  return (
-    <motion.div
-      key="success"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4"
-      initial={reduceMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={reduceMotion ? undefined : { opacity: 0 }}
-    >
-      <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="registration-success-title"
-        aria-describedby="registration-success-description"
-        initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={reduceMotion ? undefined : { opacity: 0, y: 8 }}
-        className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl"
-      >
-        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-auth-input text-auth-primary">
-          <CheckCircle2 aria-hidden="true" className="size-7" />
-        </div>
-        <h2
-          id="registration-success-title"
-          className="text-lg font-bold text-auth-foreground"
-        >
-          {response.simulated ? "Registration preview complete" : "Account created!"}
-        </h2>
-        <p
-          id="registration-success-description"
-          className="mt-2 text-sm text-auth-subtle-text"
-        >
-          {response.simulated
-            ? "This demo did not save an account. In a connected environment, you can now sign in."
-            : "Your account is ready. You’ll be redirected to sign in shortly."}
-        </p>
-        <Button
-          ref={continueButtonRef}
-          type="button"
-          variant="authPrimary"
-          size="lg"
-          onClick={onContinue}
-          className="mt-5 w-full"
-        >
-          Go to sign in
-        </Button>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 export function RegisterForm() {
   const router = useRouter();
   const mutation = useRegister();
   const reduceMotion = useReducedMotion();
   const submitLock = useRef(false);
-  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const continueButtonRef = useRef<HTMLButtonElement>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<RegisterResponse | null>(null);
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     mode: "onTouched",
     defaultValues: {
       fullName: "",
+      phoneNo: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -191,21 +122,7 @@ export function RegisterForm() {
   });
   const password = useWatch({ control: form.control, name: "password" });
 
-  useEffect(
-    () => () => {
-      if (redirectTimer.current) clearTimeout(redirectTimer.current);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (success) continueButtonRef.current?.focus();
-  }, [success]);
-
-  const goToLogin = () => {
-    if (redirectTimer.current) clearTimeout(redirectTimer.current);
-    router.replace("/login");
-  };
+  const goToLogin = () => router.replace("/login");
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (submitLock.current) {
@@ -218,27 +135,10 @@ export function RegisterForm() {
       async (values) => {
         setFormError(null);
         try {
-          const response = await mutation.mutateAsync(values);
-          if (!response.simulated) {
-            try {
-              addDemoAccount({
-                id: values.email.trim().toLowerCase(),
-                name: values.fullName.trim(),
-                email: values.email.trim().toLowerCase(),
-                passwordHash: await hashDemoPassword(values.password),
-                createdAt: new Date().toISOString(),
-              });
-            } catch {
-              toast.error("Account created, but this browser could not update the admin preview.");
-            }
-          }
-          window.sessionStorage.setItem("stt-demo-registration-notice", JSON.stringify({ name: values.fullName.trim(), email: values.email.trim().toLowerCase(), simulated: response.simulated }));
+          await mutation.mutateAsync(values);
+          window.sessionStorage.setItem("stt-registration-notice", JSON.stringify({ name: values.fullName.trim(), email: values.email.trim().toLowerCase() }));
           form.reset();
-          if (response.simulated) {
-            toast.info("Demo only: no account was saved.");
-          } else {
-            toast.success("Your account was created.");
-          }
+          toast.success("Your account was created.");
           goToLogin();
         } catch (error) {
           if (error instanceof ApiError) {
@@ -246,6 +146,7 @@ export function RegisterForm() {
               ["full_name", "fullName"],
               ["fullName", "fullName"],
               ["email", "email"],
+              ["phone_no", "phoneNo"],
               ["password", "password"],
               ["password_confirm", "confirmPassword"],
               ["confirmPassword", "confirmPassword"],
@@ -288,7 +189,7 @@ export function RegisterForm() {
           onSubmit={submit}
           className="space-y-3.5"
           aria-busy={isSubmitting}
-          inert={isSubmitting || Boolean(success)}
+          inert={isSubmitting}
         >
           <motion.div
             variants={authFieldsVariants}
@@ -378,6 +279,13 @@ export function RegisterForm() {
               )}
             />
 
+            <FormField control={form.control} name="phoneNo" render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="phoneNo">Phone number</FormLabel>
+                <FormControl><Input {...field} id="phoneNo" type="tel" autoComplete="tel" maxLength={20} placeholder="+255…" variant="lavender" disabled={isSubmitting} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
             <FormField
               control={form.control}
               name="password"
@@ -564,14 +472,6 @@ export function RegisterForm() {
 
       <AnimatePresence>
         {isSubmitting && <CreatingOverlay reduceMotion={Boolean(reduceMotion)} />}
-        {success && (
-          <RegistrationSuccess
-            response={success}
-            reduceMotion={Boolean(reduceMotion)}
-            onContinue={goToLogin}
-            continueButtonRef={continueButtonRef}
-          />
-        )}
       </AnimatePresence>
     </>
   );

@@ -41,15 +41,13 @@ export function LoginForm() {
   });
 
   useEffect(() => {
-    const notice = window.sessionStorage.getItem("stt-demo-registration-notice");
+    const notice = window.sessionStorage.getItem("stt-registration-notice");
     if (!notice) return;
-    window.sessionStorage.removeItem("stt-demo-registration-notice");
+    window.sessionStorage.removeItem("stt-registration-notice");
     try {
       const registration = JSON.parse(notice) as { name?: string; email?: string; simulated?: boolean };
       if (registration.email) form.setValue("email", registration.email);
-      toast.success(registration.simulated
-        ? "Registration preview complete. No account was saved."
-        : `Account created${registration.name ? ` for ${registration.name}` : ""}. Sign in to continue.`);
+      toast.success(`Account created${registration.name ? ` for ${registration.name}` : ""}. Sign in to continue.`);
     } catch {
       toast.success("Account created. Sign in to continue.");
     }
@@ -72,15 +70,8 @@ export function LoginForm() {
         form.clearErrors(["email", "password"]);
 
         try {
-          const result = await mutation.mutateAsync(values);
-          const role = result.user?.role?.toLowerCase() === "admin" ? "admin" : "user";
-          window.sessionStorage.setItem("stt-demo-role", role);
-          window.sessionStorage.setItem("stt-demo-email", values.email.trim().toLowerCase());
-          router.replace(
-            role === "admin"
-              ? "/admin/tasks"
-              : "/dashboard",
-          );
+          await mutation.mutateAsync(values);
+          router.replace("/");
         } catch (error) {
           if (error instanceof ApiError) {
             for (const field of ["email", "password"] as const) {
