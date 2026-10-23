@@ -3,11 +3,12 @@ import type { ProjectItem, TaskItem, TaskStatus } from "./types";
 
 type Props = {
   projects: ProjectItem[];
+  ownerId: string;
   onClose: () => void;
   onCreate: (task: TaskItem) => void;
 };
 
-export default function TaskDialog({ projects, onClose, onCreate }: Props) {
+export default function TaskDialog({ projects, ownerId, onClose, onCreate }: Props) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("Pending");
@@ -18,7 +19,7 @@ export default function TaskDialog({ projects, onClose, onCreate }: Props) {
     event.preventDefault();
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
-    onCreate({ id: Date.now(), title: cleanTitle, description: description.trim(), status, projectId: projectId || undefined, dueDate: dueDate || undefined, createdAt: new Date().toISOString() });
+    onCreate({ id: Date.now(), title: cleanTitle, description: description.trim(), status, projectId: projectId || undefined, dueDate: dueDate || undefined, createdAt: new Date().toISOString(), ownerId });
     onClose();
   }
 
