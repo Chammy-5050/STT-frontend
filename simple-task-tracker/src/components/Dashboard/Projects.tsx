@@ -3,6 +3,8 @@
 import type { DragEvent } from "react";
 import { useState } from "react";
 import { MoreVertical, Plus } from "lucide-react";
+import CreatorBadge from "./CreatorBadge";
+import DeadlineBadge from "./DeadlineBadge";
 import ProjectDialog from "./ProjectDialog";
 import styles from "./Projects.module.css";
 import type { ProjectDraft, ProjectItem, TaskItem, TaskStatus } from "./types";
@@ -25,6 +27,7 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null);
 
   function handleDragStart(event: DragEvent<HTMLElement>, taskId: string) {
+    if (!tasks.find(task => task.id === taskId)?.canEdit) { event.preventDefault(); return; }
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(taskId));
     setDraggingId(taskId);
@@ -33,7 +36,7 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
   function handleDrop(event: DragEvent<HTMLElement>, status: TaskStatus) {
     event.preventDefault();
     const taskId = event.dataTransfer.getData("text/plain");
-    if (taskId) onStatusChange(taskId, status);
+    if (tasks.find(task => task.id === taskId)?.canEdit) onStatusChange(taskId, status);
     setDraggingId(null);
     setDropTarget(null);
   }
@@ -43,6 +46,18 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
       <div className="breadcrumbs">Workspace <span>/</span> Projects</div>
       <div className="project-heading"><div className="project-identity"><div><h2>{currentProject?.name ?? "Projects"}</h2><p>{currentProject?.description || "Manage your projects and keep every task moving."}</p></div></div><button className="primary-button" onClick={() => setCreatingProject(true)}><Plus size={15} />Create project</button></div>
       <div className={styles.projectPicker}><label>Project<select value={selectedProject} onChange={(event) => setSelectedProject(event.target.value)}><option value="">All projects</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><span>{projects.length} {projects.length === 1 ? "project" : "projects"} in your workspace</span></div>
+      <div className="project-cards" aria-label="Projects in your workspace">
+        {projects.map(project => (
+          <button type="button" className={`project-summary-card ${styles.projectCard}${selectedProject === project.id ? ` ${styles.selectedCard}` : ""}`} aria-pressed={selectedProject === project.id} key={project.id} onClick={() => setSelectedProject(selectedProject === project.id ? "" : project.id)}>
+            <span className={styles.cardTop}><span className={styles.projectIcon} aria-hidden="true">{project.name.slice(0, 1).toUpperCase()}</span><span className={styles.taskCount}>{tasks.filter(task => task.projectId === project.id).length} tasks</span></span>
+            <strong>{project.name}</strong>
+            <span className={styles.cardDescription}>{project.description || "No description yet."}</span>
+            <CreatorBadge creator={project.creator} />
+            <span className={styles.cardAction}>{selectedProject === project.id ? "Showing tasks · Click to show all" : "View project tasks →"}</span>
+          </button>
+        ))}
+        {!projects.length && <p className="empty-state">No projects yet. Create your first project to get started.</p>}
+      </div>
       <section className="board" aria-label="Task status board">
         {columns.map((status) => {
           const columnTasks = projectTasks.filter((task) => task.status === status);
@@ -51,7 +66,7 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
               className={`board-column${dropTarget === status ? " drop-target" : ""}`}
               key={status}
               aria-label={`${status} tasks`}
-              onDragOver={(event) => { event.preventDefault(); setDropTarget(status); }}
+              onDragOver={(event) => { if (draggingId && tasks.find(task => task.id === draggingId)?.canEdit) { event.preventDefault(); setDropTarget(status); } }}
               onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(null); }}
               onDrop={(event) => handleDrop(event, status)}
             >
@@ -59,9 +74,9 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
               <div className="task-list">
                 {columnTasks.map((task) => (
                   <article
-                    className={`task-card draggable-task${draggingId === task.id ? " is-dragging" : ""}`}
+                    className={`task-card${task.canEdit ? " draggable-task" : " read-only-task"}${draggingId === task.id ? " is-dragging" : ""}`}
                     key={task.id}
-                    draggable
+                    draggable={Boolean(task.canEdit)}
                     onDragStart={(event) => handleDragStart(event, task.id)}
                     onDragEnd={() => { setDraggingId(null); setDropTarget(null); }}
                   >
@@ -69,11 +84,13 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
                     <h4>{task.title}</h4>
                     <p>{task.description}</p>
                     {task.dueDate && <time className="task-due-date" dateTime={task.dueDate}>{task.dueDate.slice(0, 10)}</time>}
-                    <label className="move-task-control">Move to
+                    <DeadlineBadge task={task} />
+                    <CreatorBadge creator={task.creator} />
+                    {task.canEdit ? <label className="move-task-control">Move to
                       <select aria-label={`Move ${task.title} to another status`} value={task.status} onChange={(event) => onStatusChange(task.id, event.target.value as TaskStatus)}>
                         {columns.map((option) => <option key={option}>{option}</option>)}
                       </select>
-                    </label>
+                    </label> : <span className="task-read-only">View only</span>}
                   </article>
                 ))}
                 {!columnTasks.length && <p className="column-empty">No tasks in this column.</p>}

@@ -1,4 +1,4 @@
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/$/, "");
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api").replace(/\/$/, "");
 type Tokens = { access: string; refresh: string };
 const tokenKey = "stt.tokens";
 
@@ -85,6 +85,7 @@ export type User = {
 };
 export type AdminUser = Omit<User, "profile_picture">;
 export type Role = { role_id: string; role_name: string; grant_superuser_access: boolean };
-export type ApiProject = { project_id: string; project_name: string; description: string | null; user_id: string };
-export type ApiTask = { task_id: string; task_name: string; description: string | null; project_id: string; status: "pending" | "in_progress" | "done"; due_date: string | null; created_at: string };
+export type Creator = { user_id: string; full_name: string; profile_picture: string | null };
+export type ApiProject = { creator: Creator; project_id: string; project_name: string; description: string | null; user_id: string };
+export type ApiTask = { creator: Creator; can_edit: boolean; task_id: string; task_name: string; description: string | null; project_id: string; status: "pending" | "in_progress" | "done"; due_date: string | null; created_at: string };
 export const message = (error: unknown) => error instanceof Error ? error.message : "Something went wrong. Please try again.";

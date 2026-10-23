@@ -68,12 +68,34 @@ test("member registers, creates persisted work, updates profile and signs out", 
     value.access = "expired-test-access-token";
     sessionStorage.setItem("stt.tokens", JSON.stringify(value));
   });
+  const accessToken = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stt.tokens") || "null").refresh);
+  // Use a fresh access token after intentionally expiring the saved one.
+  const refreshResponse = await page.request.post("http://localhost:8001/api/auth/refresh/", { data: { refresh: accessToken } });
+  const freshToken = (await refreshResponse.json()).access;
+  const authHeaders = { Authorization: `Bearer ${freshToken}` };
+  const projectsResponse = await page.request.get("http://localhost:8001/api/projects/", { headers: authHeaders });
+  const savedProject = (await projectsResponse.json()).find((project: { project_name: string }) => project.project_name === projectName);
+  for (const [label, offset] of [["Overdue", -1], ["Today", 0], ["Soon", 2]] as const) {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const result = await page.request.post(`http://localhost:8001/api/projects/${savedProject.project_id}/tasks/`, { headers: authHeaders, data: { task_name: `Deadline ${label} ${runId}`, due_date: dateKey } });
+    expect(result.status()).toBe(201);
+  }
   await page.reload();
   await expect(page.locator("article.task-card").filter({ hasText: taskName }).getByRole("combobox")).toHaveValue("Done");
   await expect(page.getByRole("combobox").first()).toHaveCSS("min-height", "36px");
   await page.screenshot({ path: "test-results/workspace.png", fullPage: true });
   await page.getByRole("button", { name: "Calendar", exact: true }).click();
   await expect(page.locator(".calendar-grid").getByText(taskName, { exact: true })).toBeVisible();
+  const reminders = page.getByRole("region", { name: "Task deadline reminders" });
+  await expect(reminders.getByText(taskName, { exact: true })).toHaveCount(0);
+  for (const [label, badge] of [["Overdue", "Overdue"], ["Today", "Due today"], ["Soon", "Due soon"]] as const) {
+    const reminder = reminders.locator("li").filter({ hasText: `Deadline ${label} ${runId}` });
+    await expect(reminder.getByText(badge, { exact: true })).toBeVisible();
+  }
+  await expect(page.locator(".calendar-grid .deadline-overdue").first()).toHaveCSS("color", "rgb(159, 18, 57)");
+  await page.screenshot({ path: "test-results/calendar-deadlines.png", fullPage: true });
   await page.getByRole("button", { name: "Settings", exact: true }).first().click();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Browser Updated");
@@ -113,17 +135,32 @@ test("team superuser sees all work and has no user management", async ({ page })
   await page.getByRole("button", { name: "Sign In", exact: true }).click();
   await expect(page).toHaveURL("http://localhost:3000/");
   await expect(page.locator("article.task-card").filter({ hasText: taskName })).toBeVisible();
+  const memberCard = page.locator("article.task-card").filter({ hasText: taskName });
+  await expect(memberCard).toHaveAttribute("draggable", "false");
+  await expect(memberCard.getByRole("combobox")).toHaveCount(0);
+  await expect(memberCard.getByText("Browser Updated", { exact: true })).toBeVisible();
+  await expect(memberCard.locator("img")).toBeVisible();
+  await expect(page.locator(".project-summary-card").filter({ hasText: projectName }).getByText("Browser Updated", { exact: true })).toBeVisible();
+  const token = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stt.tokens") || "null").access);
+  const auth = { Authorization: `Bearer ${token}` };
+  const projectsResponse = await page.request.get("http://localhost:8001/api/projects/", { headers: auth });
+  const project = (await projectsResponse.json()).find((item: { project_name: string }) => item.project_name === projectName);
+  const tasksResponse = await page.request.get(`http://localhost:8001/api/projects/${project.project_id}/tasks/`, { headers: auth });
+  const task = (await tasksResponse.json()).find((item: { task_name: string }) => item.task_name === taskName);
+  const forbidden = await page.request.patch(`http://localhost:8001/api/projects/${project.project_id}/tasks/${task.task_id}/`, { headers: auth, data: { status: "in_progress" } });
+  expect(forbidden.status()).toBe(403);
   await expect(page.getByRole("link", { name: "Manage users", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Tasks", exact: true }).click();
   await expect(page.getByRole("heading", { name: taskName, exact: true })).toBeVisible();
   const access = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stt.tokens") || "null").access);
-  const result = await page.request.post("http://localhost:8000/api/admin/users/", {
+  const result = await page.request.post("http://localhost:8001/api/admin/users/", {
     headers: { Authorization: `Bearer ${access}` },
     data: { email: managedEmail },
   });
   expect(result.status()).toBe(404);
   await page.goto("/admin/users");
   await expect(page).toHaveURL("http://localhost:3000/");
+  await expect(page.locator("article.task-card").filter({ hasText: taskName })).toBeVisible();
   await page.screenshot({ path: "test-results/admin-workspace.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open navigation" }).click();

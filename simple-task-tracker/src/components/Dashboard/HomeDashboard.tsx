@@ -16,8 +16,8 @@ import type { DashboardPage, ProjectDraft, ProjectItem, TaskDraft, TaskFilter, T
 
 const statusToApi = { Pending: "pending", "In Progress": "in_progress", Done: "done" } as const;
 const statusToUi = { pending: "Pending", in_progress: "In Progress", done: "Done" } as const;
-const projectFromApi = (value: ApiProject): ProjectItem => ({ id: value.project_id, name: value.project_name, description: value.description || "" });
-const taskFromApi = (value: ApiTask): TaskItem => ({ id: value.task_id, title: value.task_name, description: value.description || "", status: statusToUi[value.status], projectId: value.project_id, dueDate: value.due_date || undefined, createdAt: value.created_at });
+const projectFromApi = (value: ApiProject): ProjectItem => ({ id: value.project_id, name: value.project_name, description: value.description || "", creator: value.creator });
+const taskFromApi = (value: ApiTask): TaskItem => ({ id: value.task_id, title: value.task_name, description: value.description || "", status: statusToUi[value.status], projectId: value.project_id, dueDate: value.due_date || undefined, createdAt: value.created_at, creator: value.creator, canEdit: value.can_edit });
 
 export default function HomeDashboard() {
   const router = useRouter();
@@ -62,7 +62,7 @@ export default function HomeDashboard() {
   function logout() { signOut(); router.replace("/login"); }
   async function changeTaskStatus(taskId: string, status: TaskStatus) {
     const task = tasks.find(item => item.id === taskId);
-    if (!task) return;
+    if (!task || !task.canEdit) return;
     try {
       const updated = await api<ApiTask>(`/projects/${task.projectId}/tasks/${task.id}/`, { method: "PATCH", body: JSON.stringify({ status: statusToApi[status] }) });
       setTasks(current => current.map(item => item.id === taskId ? taskFromApi(updated) : item));
@@ -93,7 +93,8 @@ export default function HomeDashboard() {
     }
   }
 
-  const supportsTaskActions = activePage !== "Settings" && projects.length > 0 && !fetching;
+  const ownedProjects = projects.filter(project => project.creator?.user_id === userId);
+  const supportsTaskActions = activePage !== "Settings" && ownedProjects.length > 0 && !fetching;
   const supportsTaskSearch = activePage === "Tasks" || activePage === "Projects";
 
   if (loading || !user) return <main className="empty-state" role="status">Loading your account…</main>;
@@ -105,7 +106,7 @@ export default function HomeDashboard() {
         <DashboardHeader title={activePage} user={user} tasks={tasks} onOpenMenu={() => setSidebarOpen(true)} onLogout={logout} onSearch={supportsTaskSearch ? setSearch : undefined} showAddTask={supportsTaskActions} onAddTask={() => setTaskDialogOpen(true)} onToggleTheme={() => setDarkTheme((current) => !current)} onOpenSettings={() => setActivePage("Settings")} />
         <div className="page-content">{supportsTaskSearch && <label className="mobile-search search-box"><input placeholder="Search tasks" aria-label="Search tasks on mobile" onChange={event => setSearch(event.target.value)} /></label>}{error && <div className="api-error" role="alert">{error} <button className="text-button" onClick={() => void load()}>Retry</button></div>}{fetching ? <p role="status">Loading projects and tasks…</p> : renderPage()}</div>
       </section>
-      {taskDialogOpen && <TaskDialog projects={projects} onClose={() => setTaskDialogOpen(false)} onCreate={createTask} />}
+      {taskDialogOpen && <TaskDialog projects={ownedProjects} onClose={() => setTaskDialogOpen(false)} onCreate={createTask} />}
     </main>
   );
 }

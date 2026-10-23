@@ -3,3 +3,13 @@
 .projectPicker select { max-width:300px; min-height:36px; padding:0 32px 0 12px; border:1px solid var(--line); border-radius:7px; color:var(--ink); background:var(--card); outline-color:#a77bf9; }
 .projectPicker > span { color:var(--muted); font-size:11px; }
 .error { color:#bd354f; font-size:12px; margin:0 0 12px; }
+.projectCard { min-height: 225px; gap: 12px; border-top: 3px solid #b89ae8; box-shadow: 0 3px 12px #29115c08; transition: border-color .15s, box-shadow .15s; }
+.projectCard:hover { border-color: #8054c4; box-shadow: 0 6px 18px #29115c14; }
+.projectCard:focus-visible { outline: 3px solid #a77bf9; outline-offset: 3px; }
+.selectedCard { border-color: #7142bd; box-shadow: 0 0 0 1px #7142bd; }
+.projectCard > .cardTop { display: flex; align-items: center; justify-content: space-between; margin: 0; }
+.projectIcon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: #efe8fa; color: #5934a0; font-size: 17px; font-weight: 700; }
+.taskCount { padding: 5px 8px; border-radius: 20px; background: #efe8fa; color: #5934a0; font-size: 10px; }
+.projectCard > strong { font-size: 16px; overflow-wrap: anywhere; }
+.projectCard > .cardDescription { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
+.projectCard > .cardAction { margin: 0; padding-top: 10px; border-top: 1px solid var(--line); color: var(--ink); font-size: 11px; }

@@ -443,3 +443,33 @@ button { cursor: pointer; }
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E");
 }
 .task-status-select { min-height: 36px; }
+.app-shell { --muted: #77717f; }
+.app-shell.dark-theme { --muted: #b9b2c3; }
+.creator-badge { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--ink); text-align: left; }
+.creator-badge img,.creator-initials { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; object-fit: cover; }
+.creator-initials { display: grid; place-items: center; background: #eee6fa; color: #5934a0; font-size: 10px; font-weight: 700; }
+.creator-badge small,.creator-badge b { display: block; font-size: 10px; line-height: 1.5; }
+.creator-badge small { color: var(--muted); font-size: 9px; }
+.creator-badge b { font-weight: 600; }
+.project-cards { display: grid; grid-template-columns: repeat(auto-fill,minmax(min(100%,260px),1fr)); gap: 18px; margin: 20px 0 28px; }
+.project-summary-card { display: flex; flex-direction: column; align-items: stretch; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); text-align: left; color: var(--ink); }
+.project-summary-card > strong { font-size: 13px; }.project-summary-card > span:not(.creator-badge) { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.project-summary-card .creator-badge { margin-top: auto; padding-top: 12px; }
+.task-card .creator-badge { margin-bottom: 10px; }
+.task-read-only { display: inline-block; margin-top: 10px; color: var(--muted); font-size: 10px; }
+.read-only-task { cursor: default; }
+.deadline-badge { display: inline-block; padding: 4px 7px; border-radius: 6px; font-size: 10px; font-weight: 600; margin: 4px 0; }
+.deadline-overdue { color: #9f1239; background: #ffe4e6; }
+.deadline-today { color: #92400e; background: #fef3c7; }
+.deadline-soon { color: #5b21b6; background: #ede9fe; }
+.calendar-deadlines { margin-bottom: 20px; }.calendar-deadlines h3 { margin: 0; font-size: 14px; }.calendar-deadlines > p { color: var(--muted); font-size: 11px; }
+.calendar-deadlines ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.calendar-deadlines li { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.calendar-deadlines li button { border: 0; background: transparent; text-align: left; color: var(--ink); flex: 1; min-width: 120px; font-size: 12px; }
+.calendar-deadlines time { color: var(--muted); font-size: 11px; }
+.calendar-cell .calendar-task { border-radius: 3px; padding: 2px; }.calendar-task span { font-size: 8px; }
+.calendar-cell .deadline-overdue { color: #9f1239; background: #ffe4e6; }
+.calendar-cell .deadline-today { color: #92400e; background: #fef3c7; }
+.calendar-cell .deadline-soon { color: #5b21b6; background: #ede9fe; }
+.dark-theme .project-summary-card { background: #211e28; color: #f2eff8; border-color: #35303f; }.dark-theme .creator-badge,.dark-theme .calendar-deadlines li button { color: #f2eff8; }
+@media (max-width: 560px) { .project-cards { grid-template-columns: 1fr; }.task-row { flex-wrap: wrap; } }
