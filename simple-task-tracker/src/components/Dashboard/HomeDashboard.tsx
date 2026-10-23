@@ -87,7 +87,7 @@ export default function HomeDashboard() {
     switch (activePage) {
       case "Dashboard": return <DashboardOverview projects={projects} tasks={tasks} onOpenProjects={() => setActivePage("Projects")} onSelectTaskFilter={openTasks} />;
       case "Tasks": return <Task tasks={visibleTasks} filter={taskFilter} onFilterChange={setTaskFilter} onStatusChange={changeTaskStatus} />;
-      case "Projects": return <Projects projects={projects} tasks={visibleTasks} onCreateProject={createProject} onStatusChange={changeTaskStatus} />;
+      case "Projects": return <Projects projects={projects} tasks={visibleTasks} canCreateProject={Boolean(user && !user.is_superuser)} onCreateProject={createProject} onStatusChange={changeTaskStatus} />;
       case "Calendar": return <Calendar tasks={tasks} />;
       case "Settings": return <Settings darkTheme={darkTheme} onThemeChange={setDarkTheme} />;
     }

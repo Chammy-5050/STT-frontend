@@ -10,6 +10,7 @@ import styles from "./Projects.module.css";
 import type { ProjectDraft, ProjectItem, TaskItem, TaskStatus } from "./types";
 
 type Props = {
+  canCreateProject?: boolean;
   projects: ProjectItem[];
   onCreateProject: (project: ProjectDraft) => Promise<ProjectItem>;
   tasks: TaskItem[];
@@ -18,7 +19,7 @@ type Props = {
 
 const columns: TaskStatus[] = ["Pending", "In Progress", "Done"];
 
-export default function Projects({ projects, tasks, onCreateProject, onStatusChange }: Props) {
+export default function Projects({ projects, tasks, onCreateProject, onStatusChange, canCreateProject = false }: Props) {
   const [creatingProject, setCreatingProject] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
   const currentProject = projects.find((project) => project.id === selectedProject);
@@ -44,7 +45,7 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
   return (
     <>
       <div className="breadcrumbs">Workspace <span>/</span> Projects</div>
-      <div className="project-heading"><div className="project-identity"><div><h2>{currentProject?.name ?? "Projects"}</h2><p>{currentProject?.description || "Manage your projects and keep every task moving."}</p></div></div><button className="primary-button" onClick={() => setCreatingProject(true)}><Plus size={15} />Create project</button></div>
+      <div className="project-heading"><div className="project-identity"><div><h2>{currentProject?.name ?? "Projects"}</h2><p>{currentProject?.description || "View projects and track task progress."}</p></div></div>{canCreateProject && <button className="primary-button" onClick={() => setCreatingProject(true)}><Plus size={15} />Create project</button>}</div>
       <div className={styles.projectPicker}><label>Project<select value={selectedProject} onChange={(event) => setSelectedProject(event.target.value)}><option value="">All projects</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><span>{projects.length} {projects.length === 1 ? "project" : "projects"} in your workspace</span></div>
       <div className="project-cards" aria-label="Projects in your workspace">
         {projects.map(project => (
@@ -56,7 +57,7 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
             <span className={styles.cardAction}>{selectedProject === project.id ? "Showing tasks · Click to show all" : "View project tasks →"}</span>
           </button>
         ))}
-        {!projects.length && <p className="empty-state">No projects yet. Create your first project to get started.</p>}
+        {!projects.length && <p className="empty-state">{canCreateProject ? "No projects yet. Create your first project to get started." : "No projects have been created yet."}</p>}
       </div>
       <section className="board" aria-label="Task status board">
         {columns.map((status) => {
@@ -99,7 +100,7 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
           );
         })}
       </section>
-      {creatingProject && <ProjectDialog projects={projects} onClose={() => setCreatingProject(false)} onCreate={async (input) => { const project = await onCreateProject(input); setSelectedProject(project.id); return project; }} />}
+      {canCreateProject && creatingProject && <ProjectDialog projects={projects} onClose={() => setCreatingProject(false)} onCreate={async (input) => { const project = await onCreateProject(input); setSelectedProject(project.id); return project; }} />}
     </>
   );
 }
