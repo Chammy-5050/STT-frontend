@@ -4,15 +4,17 @@ import type { DragEvent } from "react";
 import { useState } from "react";
 import { MoreVertical } from "lucide-react";
 import type { TaskItem, TaskStatus } from "./types";
+import { demoUserNames } from "./taskData";
 
 type Props = {
   tasks: TaskItem[];
   onStatusChange: (taskId: number, status: TaskStatus) => void;
+  showOwners?: boolean;
 };
 
 const columns: TaskStatus[] = ["Pending", "In Progress", "Done"];
 
-export default function Projects({ tasks, onStatusChange }: Props) {
+export default function Projects({ tasks, onStatusChange, showOwners = false }: Props) {
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null);
 
@@ -60,6 +62,7 @@ export default function Projects({ tasks, onStatusChange }: Props) {
                     <span className="card-menu" aria-hidden="true"><MoreVertical size={17} /></span>
                     <h4>{task.title}</h4>
                     <p>{task.description}</p>
+                    {showOwners && <small className="task-owner">Assigned to {demoUserNames[task.ownerId] ?? task.ownerId}</small>}
                     {task.dueDate && <time className="task-due-date" dateTime={task.dueDate}>{task.dueDate.slice(0, 10)}</time>}
                     <label className="move-task-control">Move to
                       <select aria-label={`Move ${task.title} to another status`} value={task.status} onChange={(event) => onStatusChange(task.id, event.target.value as TaskStatus)}>
