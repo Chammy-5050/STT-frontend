@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -232,3 +231,4 @@ button { cursor: pointer; }
 .dark-theme .header-popover { border-color: #393441; background: #211e28; color: #f2eff8; }.dark-theme .notification-popover p,.dark-theme .profile-menu-copy { border-color: #393441; }.dark-theme .notification-popover p,.dark-theme .profile-menu-copy small,.dark-theme .profile-popover > button,.dark-theme .profile-popover > a { color: #c1bbc9; }.dark-theme .popover-title span { background: #342b43; color: #d1baff; }.dark-theme .profile-trigger:hover,.dark-theme .profile-trigger[aria-expanded="true"],.dark-theme .profile-popover > button:hover,.dark-theme .profile-popover > a:hover { background: #292531; }
 .dark-theme .task-status-select,.dark-theme .move-task-control select { border-color: #393441; background: #211e28; color: #e9e4f0; }.dark-theme .task-form-grid { color: #f2eff8; }
 @media (max-width: 560px) { .header-popover { right: -42px; width: min(270px, calc(100vw - 24px)); }.task-form-grid { grid-template-columns: 1fr; gap: 0; }.task-status-select { max-width: 125px; } }
+
