@@ -1,4 +1,5 @@
 export type TaskStatus = "Pending" | "In Progress" | "Done";
+export type DemoRole = "admin" | "user";
 
 export type TaskItem = {
   id: number;
@@ -8,6 +9,7 @@ export type TaskItem = {
   projectId?: number;
   dueDate?: string;
   createdAt?: string;
+  ownerId: string;
 };
 
 export type ProjectItem = {
@@ -18,4 +20,4 @@ export type ProjectItem = {
 
 export type TaskFilter = "All" | TaskStatus | "Overdue";
 
-export type DashboardPage = "Dashboard" | "Tasks" | "Projects" | "Calendar" | "Settings";
+export type DashboardPage = "Admin" | "Dashboard" | "Tasks" | "Projects" | "Calendar";
