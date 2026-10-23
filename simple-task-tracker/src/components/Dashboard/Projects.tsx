@@ -49,12 +49,12 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
       <div className={styles.projectPicker}><label>Project<select value={selectedProject} onChange={(event) => setSelectedProject(event.target.value)}><option value="">All projects</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><span>{projects.length} {projects.length === 1 ? "project" : "projects"} in your workspace</span></div>
       <div className="project-cards" aria-label="Projects in your workspace">
         {projects.map(project => (
-          <button type="button" className={`project-summary-card ${styles.projectCard}${selectedProject === project.id ? ` ${styles.selectedCard}` : ""}`} aria-pressed={selectedProject === project.id} key={project.id} onClick={() => setSelectedProject(selectedProject === project.id ? "" : project.id)}>
+          <button type="button" className={`project-summary-card ${styles.projectCard}${selectedProject === project.id ? ` ${styles.selectedCard}` : ""}`} aria-pressed={selectedProject === project.id} key={project.id} onClick={() => setSelectedProject(project.id)}>
             <span className={styles.cardTop}><span className={styles.projectIcon} aria-hidden="true">{project.name.slice(0, 1).toUpperCase()}</span><span className={styles.taskCount}>{tasks.filter(task => task.projectId === project.id).length} tasks</span></span>
             <strong>{project.name}</strong>
             <span className={styles.cardDescription}>{project.description || "No description yet."}</span>
             <CreatorBadge creator={project.creator} />
-            <span className={styles.cardAction}>{selectedProject === project.id ? "Showing tasks · Click to show all" : "View project tasks →"}</span>
+            <span className={styles.cardAction}>{selectedProject === project.id ? "Showing this project's tasks" : "View project tasks →"}</span>
           </button>
         ))}
         {!projects.length && <p className="empty-state">{canCreateProject ? "No projects yet. Create your first project to get started." : "No projects have been created yet."}</p>}
