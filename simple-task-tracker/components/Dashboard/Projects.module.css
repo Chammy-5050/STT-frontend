@@ -1,0 +1,5 @@
+.projectPicker { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin:18px 0 14px; }
+.projectPicker label { display:flex; align-items:center; gap:12px; color:var(--ink); font-size:12px; }
+.projectPicker select { max-width:300px; min-height:36px; padding:0 32px 0 12px; border:1px solid var(--line); border-radius:7px; color:var(--ink); background:var(--card); outline-color:#a77bf9; }
+.projectPicker > span { color:var(--muted); font-size:11px; }
+.error { color:#bd354f; font-size:12px; margin:0 0 12px; }

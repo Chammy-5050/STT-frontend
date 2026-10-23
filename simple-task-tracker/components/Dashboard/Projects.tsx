@@ -2,17 +2,25 @@
 
 import type { DragEvent } from "react";
 import { useState } from "react";
-import { MoreVertical } from "lucide-react";
-import type { TaskItem, TaskStatus } from "./types";
+import { MoreVertical, Plus } from "lucide-react";
+import ProjectDialog from "./ProjectDialog";
+import styles from "./Projects.module.css";
+import type { ProjectItem, TaskItem, TaskStatus } from "./types";
 
 type Props = {
+  projects: ProjectItem[];
+  onCreateProject: (project: ProjectItem) => void;
   tasks: TaskItem[];
   onStatusChange: (taskId: number, status: TaskStatus) => void;
 };
 
 const columns: TaskStatus[] = ["Pending", "In Progress", "Done"];
 
-export default function Projects({ tasks, onStatusChange }: Props) {
+export default function Projects({ projects, tasks, onCreateProject, onStatusChange }: Props) {
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(0);
+  const currentProject = projects.find((project) => project.id === selectedProject);
+  const projectTasks = selectedProject ? tasks.filter((task) => task.projectId === selectedProject) : tasks;
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null);
 
@@ -33,11 +41,12 @@ export default function Projects({ tasks, onStatusChange }: Props) {
   return (
     <>
       <div className="breadcrumbs">Workspace <span>/</span> Projects</div>
-      <div className="project-heading"><div className="project-identity"><div><h2>Project tasks</h2><p>Drag a task to another column to update its status.</p></div></div></div>
+      <div className="project-heading"><div className="project-identity"><div><h2>{currentProject?.name ?? "Projects"}</h2><p>{currentProject?.description || "Manage your projects and keep every task moving."}</p></div></div><button className="primary-button" onClick={() => setCreatingProject(true)}><Plus size={15} />Create project</button></div>
+      <div className={styles.projectPicker}><label>Project<select value={selectedProject} onChange={(event) => setSelectedProject(Number(event.target.value))}><option value={0}>All projects</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><span>{projects.length} {projects.length === 1 ? "project" : "projects"} in your workspace</span></div>
       <p className="demo-banner">Drag tasks or change their status from the card menu. Updates are kept for this demo session.</p>
       <section className="board" aria-label="Task status board">
         {columns.map((status) => {
-          const columnTasks = tasks.filter((task) => task.status === status);
+          const columnTasks = projectTasks.filter((task) => task.status === status);
           return (
             <section
               className={`board-column${dropTarget === status ? " drop-target" : ""}`}
@@ -74,6 +83,7 @@ export default function Projects({ tasks, onStatusChange }: Props) {
           );
         })}
       </section>
+      {creatingProject && <ProjectDialog projects={projects} onClose={() => setCreatingProject(false)} onCreate={(project) => { onCreateProject(project); setSelectedProject(project.id); }} />}
     </>
   );
 }

@@ -14,7 +14,7 @@ import type { DashboardPage, TaskFilter, TaskItem } from "./types";
 
 export default function HomeDashboard() {
   const [activePage, setActivePage] = useState<DashboardPage>("Projects");
-  const projects = initialProjects;
+  const [projects, setProjects] = useState(initialProjects);
   const [tasks, setTasks] = useState(initialTasks);
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("All");
   const [search, setSearch] = useState("");
@@ -41,7 +41,7 @@ export default function HomeDashboard() {
     switch (activePage) {
       case "Dashboard": return <DashboardOverview projects={projects} tasks={tasks} onOpenProjects={() => setActivePage("Projects")} onSelectTaskFilter={openTasks} />;
       case "Tasks": return <Task tasks={visibleTasks} filter={taskFilter} onFilterChange={setTaskFilter} onStatusChange={changeTaskStatus} />;
-      case "Projects": return <Projects tasks={visibleTasks} onStatusChange={changeTaskStatus} />;
+      case "Projects": return <Projects projects={projects} tasks={visibleTasks} onCreateProject={(project) => setProjects((current) => [...current, project])} onStatusChange={changeTaskStatus} />;
       case "Calendar": return <Calendar tasks={tasks} />;
       case "Settings": return <Settings darkTheme={darkTheme} onThemeChange={setDarkTheme} />;
     }
