@@ -43,7 +43,6 @@ export default function Projects({ projects, tasks, onCreateProject, onStatusCha
       <div className="breadcrumbs">Workspace <span>/</span> Projects</div>
       <div className="project-heading"><div className="project-identity"><div><h2>{currentProject?.name ?? "Projects"}</h2><p>{currentProject?.description || "Manage your projects and keep every task moving."}</p></div></div><button className="primary-button" onClick={() => setCreatingProject(true)}><Plus size={15} />Create project</button></div>
       <div className={styles.projectPicker}><label>Project<select value={selectedProject} onChange={(event) => setSelectedProject(Number(event.target.value))}><option value={0}>All projects</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><span>{projects.length} {projects.length === 1 ? "project" : "projects"} in your workspace</span></div>
-      <p className="demo-banner">Drag tasks or change their status from the card menu. Updates are kept for this demo session.</p>
       <section className="board" aria-label="Task status board">
         {columns.map((status) => {
           const columnTasks = projectTasks.filter((task) => task.status === status);
