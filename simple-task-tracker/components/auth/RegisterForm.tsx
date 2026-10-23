@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LockKeyhole, Mail, UserRound } from "lucide-react";
 import AuthLogo from "./AuthLogo";
 import LoadingView from "./LoadingView";
+import { addDemoAccount, findDemoAccount, hashDemoPassword } from "@/lib/demoAccounts";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -26,8 +27,17 @@ export default function RegisterForm() {
     { label: "Special character", valid: /[^A-Za-z0-9]/.test(password) },
   ], [password]);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail === "admin@gmail.com" || normalizedEmail === "demo@tasktracker.local") {
+      setMessage("That email is reserved for a built-in demo account.");
+      return;
+    }
+    if (findDemoAccount(normalizedEmail)) {
+      setMessage("An account already exists with this email. Sign in instead.");
+      return;
+    }
     if (password !== confirmPassword) {
       setMessage("Your passwords do not match.");
       return;
@@ -37,7 +47,26 @@ export default function RegisterForm() {
       return;
     }
     setLoading(true);
-    window.setTimeout(() => router.push("/"), 1300);
+    try {
+      const account = {
+        id: normalizedEmail,
+        name: name.trim(),
+        email: normalizedEmail,
+        passwordHash: await hashDemoPassword(password),
+        createdAt: new Date().toISOString(),
+      };
+      if (!addDemoAccount(account)) {
+        setMessage("An account already exists with this email. Sign in instead.");
+        setLoading(false);
+        return;
+      }
+      window.sessionStorage.setItem("stt-demo-registration-notice", JSON.stringify({ name: account.name, email: account.email }));
+      router.push("/login");
+    } catch {
+      setMessage("Could not save this demo account in this browser.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (loading) return <LoadingView />;
