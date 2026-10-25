@@ -31,7 +31,7 @@ function FormLabel({
   className,
   ...props
 }: React.ComponentProps<typeof Label>) {
-  return <Label className={cn("text-xs text-foreground", className)} {...props} />;
+  return <Label className={cn("text-sm font-medium text-foreground", className)} {...props} />;
 }
 
 function FormControl({ children }: { children: React.ReactNode }) {
@@ -44,7 +44,7 @@ function FormDescription({
 }: React.ComponentProps<"p">) {
   return (
     <p
-      className={cn("text-[10px] leading-4 text-auth-muted", className)}
+      className={cn("text-xs leading-5 text-auth-muted", className)}
       {...props}
     />
   );
@@ -57,7 +57,7 @@ function FormMessage({
   return (
     <p
       role="alert"
-      className={cn("text-[10px] leading-4 font-medium text-destructive", className)}
+      className={cn("text-xs leading-5 font-medium text-destructive", className)}
       {...props}
     />
   );

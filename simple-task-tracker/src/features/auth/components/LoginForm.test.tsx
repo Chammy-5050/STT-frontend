@@ -3,15 +3,17 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
+import { ApiError as BackendError } from "@/lib/api";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 
-const { replace, signIn } = vi.hoisted(() => ({
+const { replace, push, signIn } = vi.hoisted(() => ({
   signIn: vi.fn(),
   replace: vi.fn(),
+  push: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace }),
+  useRouter: () => ({ replace, push }),
 }));
 
 vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ signIn }) }));
@@ -32,7 +34,9 @@ function renderLoginForm() {
 describe("LoginForm", () => {
   beforeEach(() => {
     replace.mockReset();
+    push.mockReset();
     apiRequestMock.mockReset();
+    sessionStorage.clear();
   });
 
   it("shows inline validation errors when submitted empty", async () => {
@@ -74,10 +78,13 @@ describe("LoginForm", () => {
     await user.type(screen.getByLabelText("Password"), "valid-password");
     await user.click(screen.getByRole("button", { name: "Sign In" }));
 
+    expect(await screen.findByRole("status")).toHaveTextContent("You are signed in");
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
     expect(signIn).toHaveBeenCalledWith("person@example.com", "valid-password", false);
+  });
 
-    replace.mockReset();
+  it("shows invalid credentials without redirecting", async () => {
+    renderLoginForm();
     apiRequestMock.mockRejectedValueOnce(
       new ApiError(
         "Invalid email or password.",
@@ -99,6 +106,29 @@ describe("LoginForm", () => {
       expect(screen.getByText("Invalid email or password.")).toBeVisible(),
     );
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("sends unverified accounts to email verification", async () => {
+    const user = userEvent.setup();
+    apiRequestMock.mockRejectedValueOnce(
+      new BackendError("Verify your email.", 403, { code: "email_not_verified", email: "new@example.com" }),
+    );
+    renderLoginForm();
+
+    await user.type(screen.getByLabelText("Email"), "new@example.com");
+    await user.type(screen.getByLabelText("Password"), "valid-password");
+    await user.click(screen.getByRole("button", { name: "Sign In" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/verify-email"));
+    expect(JSON.parse(sessionStorage.getItem("stt-pending-verification") || "{}").email).toBe("new@example.com");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("links to password reset and pre-fills the email after a reset", async () => {
+    sessionStorage.setItem("stt-login-notice", JSON.stringify({ email: "back@example.com", message: "Password reset." }));
+    renderLoginForm();
+    expect(screen.getByRole("link", { name: "Forgot password?" })).toHaveAttribute("href", "/forgot-password");
+    await waitFor(() => expect(screen.getByLabelText("Email")).toHaveValue("back@example.com"));
   });
 
   it("redirects team administrators to the project and task workspace", async () => {

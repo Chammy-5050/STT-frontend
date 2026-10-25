@@ -32,7 +32,7 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           type={visible ? "text" : "password"}
           variant="lavender"
           aria-invalid={invalid}
-          className={cn("h-10 pl-9 pr-11 text-xs", className)}
+          className={cn("h-11 pl-9 pr-11 text-sm", className)}
         />
         <button
           type="button"

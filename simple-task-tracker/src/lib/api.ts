@@ -3,7 +3,8 @@ type Tokens = { access: string; refresh: string };
 const tokenKey = "stt.tokens";
 
 export class ApiError extends Error {
-  constructor(message: string, public status: number) { super(message); }
+  /** First message per field, e.g. { task_name: "A task with this name already exists." }. */
+  constructor(message: string, public status: number, public fields: Record<string, string> = {}) { super(message); }
 }
 
 function tokenStorage(): Storage | null {
@@ -31,8 +32,15 @@ export function clearTokens() {
 function errorText(value: unknown): string {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map(errorText).join(" ");
-  if (value && typeof value === "object") return Object.entries(value).map(([key, item]) => `${key === "detail" || key === "non_field_errors" ? "" : `${key}: `}${errorText(item)}`).join(" ");
+  if (value && typeof value === "object") return Object.values(value).map(errorText).join(" ");
   return "The request could not be completed.";
+}
+
+function fieldErrors(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => key !== "detail" && key !== "non_field_errors")
+    .map(([key, item]) => [key, errorText(Array.isArray(item) ? item[0] : item)]));
 }
 
 let refreshing: Promise<boolean> | null = null;
@@ -73,7 +81,7 @@ export async function api<T>(path: string, init: RequestInit = {}, authenticated
       clearTokens();
       window.dispatchEvent(new Event("stt:logout"));
     }
-    throw new ApiError(data ? errorText(data) : `Request failed (${response.status}).`, response.status);
+    throw new ApiError(data ? errorText(data) : `Request failed (${response.status}).`, response.status, fieldErrors(data));
   }
   return data as T;
 }
@@ -86,6 +94,6 @@ export type User = {
 export type AdminUser = Omit<User, "profile_picture">;
 export type Role = { role_id: string; role_name: string; grant_superuser_access: boolean };
 export type Creator = { user_id: string; full_name: string; profile_picture: string | null };
-export type ApiProject = { creator: Creator; project_id: string; project_name: string; description: string | null; user_id: string };
+export type ApiProject = { creator: Creator; project_id: string; project_name: string; description: string | null; user_id: string; created_at: string };
 export type ApiTask = { creator: Creator; can_edit: boolean; task_id: string; task_name: string; description: string | null; project_id: string; status: "pending" | "in_progress" | "done"; due_date: string | null; created_at: string };
 export const message = (error: unknown) => error instanceof Error ? error.message : "Something went wrong. Please try again.";

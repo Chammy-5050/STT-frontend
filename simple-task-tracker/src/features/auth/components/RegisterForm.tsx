@@ -15,7 +15,6 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Check,
-  CheckCircle2,
   LoaderCircle,
   Mail,
   UserRound,
@@ -25,6 +24,8 @@ import { toast } from "sonner";
 import { ApiError } from "@/lib/api-client";
 import { authFieldVariants, authFieldsVariants } from "@/lib/motion";
 import { useRegister } from "@/features/auth/hooks/useRegister";
+import { AuthLoader } from "@/features/auth/components/FlowParts";
+import { passwordRules, savePendingVerification } from "@/features/auth/flows";
 import {
   registerSchema,
   type RegisterFormValues,
@@ -42,65 +43,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-
-const passwordRequirements = [
-  { label: "8 or more characters", test: (value: string) => value.length >= 8 },
-  { label: "Lowercase letter", test: (value: string) => /[a-z]/.test(value) },
-  { label: "Uppercase letter", test: (value: string) => /[A-Z]/.test(value) },
-  { label: "Number", test: (value: string) => /[0-9]/.test(value) },
-  {
-    label: "Special character",
-    test: (value: string) => /[^A-Za-z0-9\s]/.test(value),
-  },
-];
-
-function CreatingOverlay({ reduceMotion }: { reduceMotion: boolean }) {
-  return (
-    <motion.div
-      key="creating"
-      role="status"
-      aria-live="polite"
-      aria-label="Creating your account"
-      initial={reduceMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={reduceMotion ? undefined : { opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-white/95 px-6 backdrop-blur-sm"
-    >
-      <div className="flex w-full max-w-xs flex-col items-center">
-        <div className="relative mb-5 flex size-14 items-center justify-center rounded-full bg-auth-primary text-white">
-          <CheckCircle2 aria-hidden="true" className="size-8" />
-          {!reduceMotion && (
-            <motion.span
-              aria-hidden="true"
-              className="absolute inset-[-5px] rounded-full border border-auth-primary"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: "linear" }}
-            />
-          )}
-        </div>
-        <p className="text-center text-sm font-semibold text-auth-primary">
-          Creating your account…
-        </p>
-        <div
-          role="progressbar"
-          aria-label="Account creation in progress"
-          aria-valuetext="Please wait"
-          className="mt-3 h-1 w-36 overflow-hidden rounded-full bg-auth-input"
-        >
-          <motion.div
-            className="h-full w-1/2 rounded-full bg-auth-primary"
-            animate={reduceMotion ? undefined : { x: ["-100%", "200%"] }}
-            transition={{
-              duration: 1.2,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-        </div>
-      </div>
-    </motion.div>
-  );
-}
 
 export function RegisterForm() {
   const router = useRouter();
@@ -122,7 +64,6 @@ export function RegisterForm() {
   });
   const password = useWatch({ control: form.control, name: "password" });
 
-  const goToLogin = () => router.replace("/login");
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (submitLock.current) {
@@ -136,10 +77,10 @@ export function RegisterForm() {
         setFormError(null);
         try {
           await mutation.mutateAsync(values);
-          window.sessionStorage.setItem("stt-registration-notice", JSON.stringify({ name: values.fullName.trim(), email: values.email.trim().toLowerCase() }));
+          savePendingVerification({ name: values.fullName.trim(), email: values.email.trim() });
           form.reset();
-          toast.success("Your account was created.");
-          goToLogin();
+          toast.success("Account created. Check your email for a 6-digit code.");
+          router.replace("/verify-email");
         } catch (error) {
           if (error instanceof ApiError) {
             const serverFieldMap = [
@@ -224,7 +165,7 @@ export function RegisterForm() {
                           aria-describedby={
                             fieldState.error ? "fullName-error" : undefined
                           }
-                          className="h-10 pl-9 text-xs"
+                          className="h-11 pl-9 text-sm"
                         />
                       </div>
                     </FormControl>
@@ -265,7 +206,7 @@ export function RegisterForm() {
                           aria-describedby={
                             fieldState.error ? "registerEmail-error" : undefined
                           }
-                          className="h-10 pl-9 text-xs"
+                          className="h-11 pl-9 text-sm"
                         />
                       </div>
                     </FormControl>
@@ -314,9 +255,9 @@ export function RegisterForm() {
                     </FormDescription>
                     <ul
                       aria-label="Password requirements"
-                      className="grid grid-cols-2 gap-x-2 gap-y-1 pt-0.5 text-[9px] text-auth-muted"
+                      className="grid grid-cols-2 gap-x-2 gap-y-1 pt-0.5 text-xs text-auth-muted"
                     >
-                      {passwordRequirements.map((requirement) => {
+                      {passwordRules.map((requirement) => {
                         const met = requirement.test(password);
                         return (
                           <li
@@ -402,7 +343,7 @@ export function RegisterForm() {
                   />
                   <FormLabel
                     htmlFor="termsAccepted"
-                    className="cursor-pointer text-[10px] leading-4"
+                    className="cursor-pointer text-xs leading-4"
                   >
                     I agree to the Terms and Conditions.
                   </FormLabel>
@@ -442,7 +383,7 @@ export function RegisterForm() {
               variant="authPrimary"
               size="lg"
               disabled={isSubmitting}
-              className="h-10 w-full text-xs font-semibold"
+              className="h-11 w-full text-sm font-semibold"
             >
               {isSubmitting ? (
                 <>
@@ -458,7 +399,7 @@ export function RegisterForm() {
             </Button>
           </motion.div>
 
-          <p className="pt-1 text-center text-[10px] text-auth-subtle-text">
+          <p className="pt-1 text-center text-xs text-auth-subtle-text">
             Already have an account?{" "}
             <Link
               href="/login"
@@ -471,7 +412,7 @@ export function RegisterForm() {
       </Form>
 
       <AnimatePresence>
-        {isSubmitting && <CreatingOverlay reduceMotion={Boolean(reduceMotion)} />}
+        {isSubmitting && <AuthLoader label="Creating your account…" />}
       </AnimatePresence>
     </>
   );

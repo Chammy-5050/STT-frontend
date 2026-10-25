@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { authCardVariants } from "@/lib/motion";
 
-function AuthMark({ className }: { className?: string }) {
+export function AuthMark({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"

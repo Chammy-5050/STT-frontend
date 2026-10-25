@@ -10,7 +10,9 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api-client";
 import { authFieldVariants, authFieldsVariants } from "@/lib/motion";
-import { useLogin } from "@/features/auth/hooks/useLogin";
+import { EmailNotVerifiedError, useLogin } from "@/features/auth/hooks/useLogin";
+import { LogoSpinner } from "@/features/auth/components/FlowParts";
+import { savePendingVerification, takeLoginNotice } from "@/features/auth/flows";
 import {
   loginSchema,
   type LoginFormValues,
@@ -35,22 +37,17 @@ export function LoginForm() {
   const reduceMotion = useReducedMotion();
   const submitLock = useRef(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "", rememberMe: false },
   });
 
   useEffect(() => {
-    const notice = window.sessionStorage.getItem("stt-registration-notice");
+    const notice = takeLoginNotice();
     if (!notice) return;
-    window.sessionStorage.removeItem("stt-registration-notice");
-    try {
-      const registration = JSON.parse(notice) as { name?: string; email?: string; simulated?: boolean };
-      if (registration.email) form.setValue("email", registration.email);
-      toast.success(`Account created${registration.name ? ` for ${registration.name}` : ""}. Sign in to continue.`);
-    } catch {
-      toast.success("Account created. Sign in to continue.");
-    }
+    if (notice.email) form.setValue("email", notice.email);
+    toast.success(notice.message);
   }, [form]);
 
   const clearFormError = () => {
@@ -71,9 +68,15 @@ export function LoginForm() {
 
         try {
           await mutation.mutateAsync(values);
-          router.replace("/");
+          setSignedIn(true);
+          // Let the "You are signed in" confirmation register before the workspace loads.
+          window.setTimeout(() => router.replace("/"), reduceMotion ? 0 : 700);
         } catch (error) {
-          if (error instanceof ApiError) {
+          if (error instanceof EmailNotVerifiedError) {
+            savePendingVerification({ email: error.email });
+            toast.info("Verify your email to finish signing in. We sent you a code.");
+            router.push("/verify-email");
+          } else if (error instanceof ApiError) {
             for (const field of ["email", "password"] as const) {
               const message = error.fieldErrors[field];
               if (message) form.setError(field, { type: "server", message });
@@ -97,6 +100,20 @@ export function LoginForm() {
   };
 
   const isSubmitting = mutation.isPending || form.formState.isSubmitting;
+
+  if (signedIn) {
+    return (
+      <motion.div
+        role="status"
+        initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex min-h-64 flex-col items-center justify-center gap-4 text-center"
+      >
+        <LogoSpinner />
+        <p className="text-lg font-bold text-auth-foreground">You are signed in</p>
+      </motion.div>
+    );
+  }
 
   return (
     <>
@@ -135,7 +152,7 @@ export function LoginForm() {
                           aria-describedby={
                             fieldState.error ? "email-error" : "email-description"
                           }
-                          className="h-10 pl-9 text-xs"
+                          className="h-11 pl-9 text-sm"
                           onChange={(event) => {
                             field.onChange(event);
                             clearFormError();
@@ -208,19 +225,16 @@ export function LoginForm() {
                     checked={Boolean(field.value)}
                     onCheckedChange={(checked) => field.onChange(checked === true)}
                   />
-                  <FormLabel htmlFor="rememberMe" className="cursor-pointer text-[10px]">
+                  <FormLabel htmlFor="rememberMe" className="cursor-pointer text-xs">
                     Remember me
                   </FormLabel>
                 </div>
-                <a
+                <Link
                   href="/forgot-password"
-                  aria-disabled="true"
-                  tabIndex={-1}
-                  className="pointer-events-none text-[10px] font-medium text-auth-muted"
+                  className="rounded-sm text-xs font-semibold text-auth-link underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-auth-focus"
                 >
                   Forgot password?
-                  <span className="sr-only"> (currently unavailable)</span>
-                </a>
+                </Link>
               </div>
             )}
           />
@@ -252,7 +266,7 @@ export function LoginForm() {
               variant="authPrimary"
               size="lg"
               disabled={isSubmitting}
-              className="h-10 w-full text-xs font-semibold"
+              className="h-11 w-full text-sm font-semibold"
             >
               {isSubmitting ? (
                 <>
@@ -265,7 +279,7 @@ export function LoginForm() {
             </Button>
           </motion.div>
 
-          <p className="pt-1 text-center text-[10px] text-auth-subtle-text">
+          <p className="pt-1 text-center text-xs text-auth-subtle-text">
             Don&apos;t have an account?{" "}
             <Link
               href="/register"

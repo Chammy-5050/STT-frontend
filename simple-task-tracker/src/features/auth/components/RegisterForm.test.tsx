@@ -45,7 +45,7 @@ describe("RegisterForm", () => {
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("shows the loading state, then routes to sign in after registration", async () => {
+  it("shows the loading state, then routes to email verification after registration", async () => {
     const user = userEvent.setup();
     let completeRegistration: (result: RegisterResponse) => void = () => {};
     mutateAsync.mockImplementation(
@@ -73,8 +73,10 @@ describe("RegisterForm", () => {
       detail: "Account created successfully. Please sign in.",
     });
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/verify-email"));
+    expect(JSON.parse(sessionStorage.getItem("stt-pending-verification") || "{}")).toMatchObject({
+      email: "morgan@example.com", name: "Morgan Lee",
+    });
   });
 
   it("keeps the registration form open when the backend fails", async () => {
