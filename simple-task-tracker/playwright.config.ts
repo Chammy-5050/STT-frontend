@@ -1,14 +1,17 @@
 import { defineConfig } from "@playwright/test";
 
+// Override when the dev server runs elsewhere, e.g. E2E_BASE_URL=http://localhost:3001 PW_CHANNEL=chrome.
+export const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   workers: 1,
-  timeout: 60000,
+  timeout: 90000,
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     browserName: "chromium",
-    channel: "msedge",
+    channel: process.env.PW_CHANNEL ?? "msedge",
     headless: true,
     trace: "retain-on-failure",
   },

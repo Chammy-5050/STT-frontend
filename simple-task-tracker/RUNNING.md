@@ -43,10 +43,10 @@ npm run build
 npm run test:e2e
 ```
 
-Browser tests require the backend, frontend dev server, Docker CLI, and Microsoft Edge. They create uniquely identified temporary accounts and work records in the local database, then remove only those records and their uploaded files. Keep these tests pointed at the local development stack.
+Browser tests require the backend Compose stack (including Mailpit, which they read verification and reset codes from), a running frontend, the Docker CLI, and Microsoft Edge. Point them elsewhere with environment variables, for example `E2E_BASE_URL=http://localhost:3001 PW_CHANNEL=chrome npm run test:e2e`. They create uniquely identified temporary accounts and work records in the local database, then remove only those records and their uploaded files. Keep these tests pointed at the local development stack.
 
 For the backend suite (creates and removes a separate PostgreSQL test database):
 
 ```powershell
-docker compose exec web python manage.py test STT
+docker compose exec web python manage.py test
 ```
