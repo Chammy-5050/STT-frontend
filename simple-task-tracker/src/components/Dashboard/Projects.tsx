@@ -1,106 +1,110 @@
 "use client";
 
-import type { DragEvent } from "react";
 import { useState } from "react";
-import { MoreVertical, Plus } from "lucide-react";
+import { FolderKanban, FolderPlus, PencilLine, Plus, Trash2 } from "lucide-react";
 import CreatorBadge from "./CreatorBadge";
-import DeadlineBadge from "./DeadlineBadge";
-import ProjectDialog from "./ProjectDialog";
-import styles from "./Projects.module.css";
-import type { ProjectDraft, ProjectItem, TaskItem, TaskStatus } from "./types";
+import TaskBoard from "./TaskBoard";
+import { colorSlot, plural } from "./format";
+import { ActionMenu, EmptyState, PageHeader } from "./ui";
+import type { ProjectItem, TaskItem, TaskStatus } from "./types";
 
 type Props = {
-  canCreateProject?: boolean;
   projects: ProjectItem[];
-  onCreateProject: (project: ProjectDraft) => Promise<ProjectItem>;
   tasks: TaskItem[];
+  currentUserId?: string;
+  canCreateProject?: boolean;
+  /** Controlled selection (e.g. from the sidebar); falls back to local state. */
+  selectedProjectId?: string;
+  onSelectProject?: (projectId: string) => void;
+  onCreateProject?: () => void;
+  onEditProject?: (project: ProjectItem) => void;
+  onDeleteProject?: (project: ProjectItem) => void;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onEditTask?: (task: TaskItem) => void;
+  onDeleteTask?: (task: TaskItem) => void;
+  onAddTask?: (projectId: string, status: TaskStatus) => void;
 };
 
-const columns: TaskStatus[] = ["Pending", "In Progress", "Done"];
-
-export default function Projects({ projects, tasks, onCreateProject, onStatusChange, canCreateProject = false }: Props) {
-  const [creatingProject, setCreatingProject] = useState(false);
-  const [selectedProject, setSelectedProject] = useState("");
-  const currentProject = projects.find((project) => project.id === selectedProject);
-  const projectTasks = selectedProject ? tasks.filter((task) => task.projectId === selectedProject) : tasks;
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null);
-
-  function handleDragStart(event: DragEvent<HTMLElement>, taskId: string) {
-    if (!tasks.find(task => task.id === taskId)?.canEdit) { event.preventDefault(); return; }
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", String(taskId));
-    setDraggingId(taskId);
-  }
-
-  function handleDrop(event: DragEvent<HTMLElement>, status: TaskStatus) {
-    event.preventDefault();
-    const taskId = event.dataTransfer.getData("text/plain");
-    if (tasks.find(task => task.id === taskId)?.canEdit) onStatusChange(taskId, status);
-    setDraggingId(null);
-    setDropTarget(null);
-  }
+export default function Projects({
+  projects, tasks, currentUserId, canCreateProject = false, selectedProjectId, onSelectProject,
+  onCreateProject, onEditProject, onDeleteProject, onStatusChange, onEditTask, onDeleteTask, onAddTask,
+}: Props) {
+  const [localSelection, setLocalSelection] = useState("");
+  const selected = selectedProjectId ?? localSelection;
+  const select = (projectId: string) => (onSelectProject ? onSelectProject(projectId) : setLocalSelection(projectId));
+  const currentProject = projects.find(project => project.id === selected);
+  const boardTasks = currentProject ? tasks.filter(task => task.projectId === currentProject.id) : tasks;
+  const ownsCurrent = Boolean(currentProject && currentProject.creator?.user_id === currentUserId);
 
   return (
     <>
-      <div className="breadcrumbs">Workspace <span>/</span> Projects</div>
-      <div className="project-heading"><div className="project-identity"><div><h2>{currentProject?.name ?? "Projects"}</h2><p>{currentProject?.description || "View projects and track task progress."}</p></div></div>{canCreateProject && <button className="primary-button" onClick={() => setCreatingProject(true)}><Plus size={15} />Create project</button>}</div>
-      <div className={styles.projectPicker}><label>Project<select value={selectedProject} onChange={(event) => setSelectedProject(event.target.value)}><option value="">All projects</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><span>{projects.length} {projects.length === 1 ? "project" : "projects"} in your workspace</span></div>
-      <div className="project-cards" aria-label="Projects in your workspace">
-        {projects.map(project => (
-          <button type="button" className={`project-summary-card ${styles.projectCard}${selectedProject === project.id ? ` ${styles.selectedCard}` : ""}`} aria-pressed={selectedProject === project.id} key={project.id} onClick={() => setSelectedProject(project.id)}>
-            <span className={styles.cardTop}><span className={styles.projectIcon} aria-hidden="true">{project.name.slice(0, 1).toUpperCase()}</span><span className={styles.taskCount}>{tasks.filter(task => task.projectId === project.id).length} tasks</span></span>
-            <strong>{project.name}</strong>
-            <span className={styles.cardDescription}>{project.description || "No description yet."}</span>
-            <CreatorBadge creator={project.creator} />
-            <span className={styles.cardAction}>{selectedProject === project.id ? "Showing this project's tasks" : "View project tasks →"}</span>
-          </button>
-        ))}
-        {!projects.length && <p className="empty-state">{canCreateProject ? "No projects yet. Create your first project to get started." : "No projects have been created yet."}</p>}
-      </div>
-      <section className="board" aria-label="Task status board">
-        {columns.map((status) => {
-          const columnTasks = projectTasks.filter((task) => task.status === status);
-          return (
-            <section
-              className={`board-column${dropTarget === status ? " drop-target" : ""}`}
-              key={status}
-              aria-label={`${status} tasks`}
-              onDragOver={(event) => { if (draggingId && tasks.find(task => task.id === draggingId)?.canEdit) { event.preventDefault(); setDropTarget(status); } }}
-              onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(null); }}
-              onDrop={(event) => handleDrop(event, status)}
-            >
-              <div className="column-heading"><span className={`status-dot ${status.toLowerCase().replace(" ", "-")}`} /><h3>{status}</h3><span className="task-total">{columnTasks.length}</span><MoreVertical size={16} className="column-menu-icon" /></div>
-              <div className="task-list">
-                {columnTasks.map((task) => (
-                  <article
-                    className={`task-card${task.canEdit ? " draggable-task" : " read-only-task"}${draggingId === task.id ? " is-dragging" : ""}`}
-                    key={task.id}
-                    draggable={Boolean(task.canEdit)}
-                    onDragStart={(event) => handleDragStart(event, task.id)}
-                    onDragEnd={() => { setDraggingId(null); setDropTarget(null); }}
-                  >
-                    <span className="card-menu" aria-hidden="true"><MoreVertical size={17} /></span>
-                    <h4>{task.title}</h4>
-                    <p>{task.description}</p>
-                    {task.dueDate && <time className="task-due-date" dateTime={task.dueDate}>{task.dueDate.slice(0, 10)}</time>}
-                    <DeadlineBadge task={task} />
-                    <CreatorBadge creator={task.creator} />
-                    {task.canEdit ? <label className="move-task-control">Move to
-                      <select aria-label={`Move ${task.title} to another status`} value={task.status} onChange={(event) => onStatusChange(task.id, event.target.value as TaskStatus)}>
-                        {columns.map((option) => <option key={option}>{option}</option>)}
-                      </select>
-                    </label> : <span className="task-read-only">View only</span>}
-                  </article>
-                ))}
-                {!columnTasks.length && <p className="column-empty">No tasks in this column.</p>}
-              </div>
-            </section>
-          );
-        })}
-      </section>
-      {canCreateProject && creatingProject && <ProjectDialog projects={projects} onClose={() => setCreatingProject(false)} onCreate={async (input) => { const project = await onCreateProject(input); setSelectedProject(project.id); return project; }} />}
+      <PageHeader
+        trail={["Workspace", "Projects"]}
+        title="Projects"
+        description={canCreateProject ? "Create projects, then plan and move their tasks across the board." : "Every project in the team. Projects owned by others are view only."}
+        actions={canCreateProject && onCreateProject && <button type="button" className="btn btn-primary btn-lg" onClick={onCreateProject}><Plus size={18} />Create project</button>}
+      />
+
+      {!projects.length ? (
+        <EmptyState icon={<FolderKanban size={26} />} title="No projects yet"
+          action={canCreateProject && onCreateProject && <button type="button" className="btn btn-primary" onClick={onCreateProject}><FolderPlus size={17} />Create your first project</button>}>
+          {canCreateProject ? "Projects group related tasks. Create one to start planning work." : "Members haven't created any projects yet."}
+        </EmptyState>
+      ) : (
+        <>
+          <div className="project-grid" aria-label="Projects in your workspace">
+            {projects.map(project => {
+              const projectTasks = tasks.filter(task => task.projectId === project.id);
+              const done = projectTasks.filter(task => task.status === "Done").length;
+              const percent = projectTasks.length ? Math.round((done / projectTasks.length) * 100) : 0;
+              const owned = project.creator?.user_id === currentUserId;
+              return (
+                <article key={project.id} className={`project-card${selected === project.id ? " is-selected" : ""}`}>
+                  <div className="project-card-head">
+                    <span className={`project-tile avatar-${colorSlot(project.name)}`} aria-hidden="true">{project.name.slice(0, 1).toUpperCase()}</span>
+                    <button type="button" className="project-select" aria-pressed={selected === project.id} onClick={() => select(project.id)}>
+                      <strong>{project.name}</strong>
+                      <small>{plural(projectTasks.length, "task")}</small>
+                    </button>
+                    {owned && (onEditProject || onDeleteProject) && <ActionMenu label={`Actions for ${project.name}`} actions={[
+                      ...(onEditProject ? [{ label: "Edit project", icon: <PencilLine size={16} />, onSelect: () => onEditProject(project) }] : []),
+                      ...(onDeleteProject ? [{ label: "Delete project", icon: <Trash2 size={16} />, tone: "danger" as const, separatorBefore: true, onSelect: () => onDeleteProject(project) }] : []),
+                    ]} />}
+                  </div>
+                  <p className={`project-description${project.description ? "" : " is-empty"}`}>{project.description || "No description yet."}</p>
+                  <div>
+                    <div className="project-progress-meta"><span>Progress</span><span>{done}/{projectTasks.length} done · {percent}%</span></div>
+                    <div className="progress" role="progressbar" aria-label={`${project.name} progress`} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${percent}%` }} /></div>
+                  </div>
+                  <div className="project-card-foot">
+                    <CreatorBadge creator={project.creator} size={26} />
+                    {!owned && <span className="read-only-note">View only</span>}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="board-header">
+            <div>
+              <h2>{currentProject ? `${currentProject.name} board` : "All projects board"}</h2>
+              <p>{currentProject ? (ownsCurrent ? "Add tasks to this project, then drag cards between columns or use the status menu on each card." : "This project belongs to another member and is view only.") : canCreateProject ? "Open one of your projects to add tasks to it." : "Select a project card to focus its board."}</p>
+            </div>
+            <div className="page-actions">
+              {currentProject && <button type="button" className="btn btn-secondary" onClick={() => select("")}>Show all projects</button>}
+              {ownsCurrent && onAddTask && <button type="button" className="btn btn-primary" onClick={() => onAddTask(currentProject!.id, "Pending")}><Plus size={17} />Add task</button>}
+            </div>
+          </div>
+          <TaskBoard
+            tasks={boardTasks}
+            projects={currentProject ? undefined : projects}
+            onStatusChange={onStatusChange}
+            onEdit={onEditTask}
+            onDelete={onDeleteTask}
+            onAddTask={ownsCurrent && onAddTask ? status => onAddTask(currentProject!.id, status) : undefined}
+          />
+        </>
+      )}
     </>
   );
 }

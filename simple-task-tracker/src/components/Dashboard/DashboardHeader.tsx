@@ -1,52 +1,99 @@
 "use client";
 
-import { Bell, Menu, Search, Settings, Sun } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Bell, ChevronDown, LogOut, Menu, Moon, Settings, Sun } from "lucide-react";
 import type { User } from "@/lib/api";
+import { setTheme, useTheme } from "@/lib/theme";
+import DeadlineBadge from "./DeadlineBadge";
+import { deadlineFor } from "./deadlines";
+import { formatDate } from "./format";
+import { Avatar } from "./ui";
 import type { TaskItem } from "./types";
 
 type Props = {
   title: string;
   user: User;
   tasks: TaskItem[];
-  onLogout: () => void;
+  sidebarOpen: boolean;
   onOpenMenu: () => void;
-  onSearch?: (value: string) => void;
-  showAddTask?: boolean;
-  onAddTask: () => void;
-  onToggleTheme: () => void;
+  onLogout: () => void;
   onOpenSettings: () => void;
+  onOpenReminders: () => void;
 };
 
-export default function DashboardHeader({ title, user, tasks, onLogout, onOpenMenu, onSearch, showAddTask, onAddTask, onToggleTheme, onOpenSettings }: Props) {
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [notificationsRead, setNotificationsRead] = useState(false);
-  const today = new Date();
-  const dayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  const overdue = tasks.filter(task => task.dueDate && task.dueDate < dayKey && task.status !== "Done");
+/** A header popover that closes on outside click or Escape and returns focus to its trigger. */
+function Popover({ open, onClose, trigger, children, className = "" }: { open: boolean; onClose: () => void; trigger: ReactNode; children: ReactNode; className?: string }) {
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: MouseEvent) => { if (!root.current?.contains(event.target as Node)) onClose(); };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { onClose(); root.current?.querySelector<HTMLElement>("button")?.focus(); } };
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("mousedown", outside); document.removeEventListener("keydown", escape); };
+  }, [open, onClose]);
+  return <div className="popover-anchor" ref={root}>{trigger}{open && <div className={`popover ${className}`}>{children}</div>}</div>;
+}
 
-  function toggleNotifications() {
-    setNotificationsOpen((open) => !open);
-    setProfileOpen(false);
-    setNotificationsRead(true);
-  }
+export default function DashboardHeader({ title, user, tasks, sidebarOpen, onOpenMenu, onLogout, onOpenSettings, onOpenReminders }: Props) {
+  const theme = useTheme();
+  const [openMenu, setOpenMenu] = useState<"notifications" | "profile" | null>(null);
+  const close = () => setOpenMenu(null);
+  const reminders = tasks
+    .filter(task => { const kind = deadlineFor(task)?.kind; return kind === "overdue" || kind === "today"; })
+    .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+  const role = user.is_superuser ? "Administrator" : "Member";
 
   return (
     <header className="topbar">
-      <div className="topbar-left"><button className="mobile-menu icon-button" aria-label="Open navigation" onClick={onOpenMenu}><Menu size={19} /></button><h1>{title}</h1></div>
+      <div className="topbar-left">
+        <button type="button" className="icon-button mobile-menu" aria-label="Open navigation" aria-controls="app-sidebar" aria-expanded={sidebarOpen} onClick={onOpenMenu}><Menu size={22} /></button>
+        <p className="topbar-title">{title}</p>
+      </div>
       <div className="topbar-actions">
-        {onSearch && <label className="search-box"><Search size={16} /><input placeholder="Search tasks" onChange={(event) => onSearch(event.target.value)} /></label>}
-        {showAddTask && <button className="primary-button" onClick={onAddTask}>+ New Task</button>}
-        <button className="icon-button" aria-label="Toggle theme" title="Toggle theme" onClick={onToggleTheme}><Sun size={18} /></button>
-        <div className="header-popover-anchor">
-          <button className={`icon-button notification-button${notificationsOpen ? " is-active" : ""}`} aria-label="Notifications" aria-expanded={notificationsOpen} onClick={toggleNotifications}><Bell size={18} />{!notificationsRead && overdue.length > 0 && <i />}</button>
-          {notificationsOpen && <div className="header-popover notification-popover"><div className="popover-title"><b>Task reminders</b></div>{overdue.length ? overdue.slice(0, 5).map(task => <p key={task.id}><span className="notice-dot amber" />{task.title} is overdue.</p>) : <p>No overdue tasks.</p>}<button className="text-button" onClick={() => setNotificationsOpen(false)}>Close</button></div>}
-        </div>
-        <div className="header-popover-anchor">
-          <button className="profile profile-trigger" aria-expanded={profileOpen} onClick={() => { setProfileOpen((open) => !open); setNotificationsOpen(false); }}><span className="avatar" style={user.profile_picture ? { backgroundImage: `url("${user.profile_picture}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>{user.profile_picture ? "" : user.full_name.slice(0, 1).toUpperCase()}</span><span className="profile-copy"><b>{user.full_name}</b><small>{user.is_superuser ? "Administrator" : "Member"}</small></span></button>
-          {profileOpen && <div className="header-popover profile-popover"><div className="profile-menu-copy"><b>{user.full_name}</b><small>{user.email}</small></div><button onClick={() => { onOpenSettings(); setProfileOpen(false); }}><Settings size={15} />Settings</button><button onClick={onLogout}>Sign out</button></div>}
-        </div>
+        <button type="button" className="icon-button" aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} title="Toggle theme"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+          {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+
+        <Popover open={openMenu === "notifications"} onClose={close} className="notification-popover" trigger={
+          <button type="button" className="icon-button" aria-label={reminders.length ? `Task reminders, ${reminders.length} need attention` : "Task reminders"} aria-expanded={openMenu === "notifications"} aria-haspopup="true"
+            onClick={() => setOpenMenu(current => current === "notifications" ? null : "notifications")}>
+            <Bell size={20} />
+            {reminders.length > 0 && <span className="badge-count" aria-hidden="true">{reminders.length > 9 ? "9+" : reminders.length}</span>}
+          </button>
+        }>
+          <div className="popover-header"><b>Task reminders</b><span>Overdue & due today</span></div>
+          {reminders.length ? (
+            <ul className="reminder-list">
+              {reminders.slice(0, 8).map(task => (
+                <li key={task.id}>
+                  <button type="button" className="reminder-item" onClick={() => { close(); onOpenReminders(); }}>
+                    <span className={`status-dot ${deadlineFor(task)?.kind === "overdue" ? "overdue" : "in-progress"}`} aria-hidden="true" />
+                    <span><b>{task.title}</b><small>Due {formatDate(task.dueDate)}</small></span>
+                    <DeadlineBadge task={task} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="popover-empty">You&apos;re all caught up — nothing is overdue or due today.</p>}
+        </Popover>
+
+        <Popover open={openMenu === "profile"} onClose={close} className="profile-menu" trigger={
+          <button type="button" className="profile-trigger" aria-label={`Account menu for ${user.full_name}`} aria-expanded={openMenu === "profile"} aria-haspopup="true"
+            onClick={() => setOpenMenu(current => current === "profile" ? null : "profile")}>
+            <Avatar name={user.full_name} src={user.profile_picture} size={38} />
+            <span className="profile-copy"><b>{user.full_name}</b><small>{role}</small></span>
+            <ChevronDown size={16} aria-hidden="true" />
+          </button>
+        }>
+          <div className="profile-menu-head">
+            <Avatar name={user.full_name} src={user.profile_picture} size={40} />
+            <div><b>{user.full_name}</b><small>{user.email}</small></div>
+          </div>
+          <button type="button" className="menu-item" onClick={() => { close(); onOpenSettings(); }}><Settings size={16} />Settings</button>
+          <button type="button" className="menu-item danger" onClick={() => { close(); onLogout(); }}><LogOut size={16} />Sign out</button>
+        </Popover>
       </div>
     </header>
   );

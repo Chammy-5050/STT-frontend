@@ -1,5 +1,6 @@
 import type { Creator } from "@/lib/api";
 export type TaskStatus = "Pending" | "In Progress" | "Done";
+export const TASK_STATUSES: TaskStatus[] = ["Pending", "In Progress", "Done"];
 
 export type TaskItem = {
   id: string;
@@ -18,6 +19,7 @@ export type ProjectItem = {
   id: string;
   name: string;
   description: string;
+  createdAt?: string;
 };
 
 export type TaskFilter = "All" | TaskStatus | "Overdue" | "Today";

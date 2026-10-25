@@ -1,37 +1,90 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { X } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { FolderPen, FolderPlus, Loader2 } from "lucide-react";
+import { ApiError, message } from "@/lib/api";
+import { ConfirmDialog, Field, Modal } from "./ui";
 import type { ProjectDraft, ProjectItem } from "./types";
-import { message } from "@/lib/api";
-import styles from "./Projects.module.css";
 
-type Props = { projects: ProjectItem[]; onClose: () => void; onCreate: (project: ProjectDraft) => Promise<ProjectItem> };
+type Props = {
+  /** Present when editing. */
+  project?: ProjectItem;
+  /** The user's own projects, used to catch duplicate names before saving. */
+  ownedProjects: ProjectItem[];
+  onClose: () => void;
+  onSubmit: (draft: ProjectDraft) => Promise<unknown>;
+};
 
-export default function ProjectDialog({ projects, onClose, onCreate }: Props) {
+const LIMIT = 255;
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [error, setError] = useState("");
+export default function ProjectDialog({ project, ownedProjects, onClose, onSubmit }: Props) {
+  const editing = Boolean(project);
+  const [initial] = useState<ProjectDraft>(() => ({ name: project?.name ?? "", description: project?.description ?? "" }));
+  const [draft, setDraft] = useState(initial);
+  const [errors, setErrors] = useState<{ name?: string; description?: string; form?: string }>({});
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const dirty = draft.name !== initial.name || draft.description !== initial.description;
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const cleanName = name.trim();
-    if (!cleanName) { setError("Enter a project name."); return; }
-    if (projects.some((project) => project.name.toLowerCase() === cleanName.toLowerCase())) { setError("A project with this name already exists."); return; }
-    setBusy(true);
-    try { await onCreate({ name: cleanName, description: description.trim() }); onClose(); }
-    catch (error) { setError(message(error)); }
-    finally { setBusy(false); }
+  function requestClose() {
+    if (busy) return;
+    if (dirty) setConfirmDiscard(true);
+    else onClose();
   }
 
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}><form className="task-modal" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title" onSubmit={submit}><div className="modal-heading"><div><span className="eyebrow">QUICK ACTION</span><h2 id="project-dialog-title">Create a project</h2></div><button type="button" className="icon-button" aria-label="Close project form" onClick={onClose}><X size={18} /></button></div><label>Project name<input autoFocus required maxLength={255} value={name} onChange={(event) => { setName(event.target.value); setError(""); }} placeholder="e.g. Mobile app launch" aria-describedby={error ? "project-error" : undefined} aria-invalid={!!error} /></label><label>Description<textarea rows={3} maxLength={255} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What is this project about?" /></label>{error && <p id="project-error" className={styles.error} role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="cancel-button" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className="primary-button" disabled={busy}>{busy ? "Saving…" : "Create project"}</button></div></form></div>;
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = draft.name.trim();
+    if (!name) { setErrors({ name: "Enter a project name." }); return; }
+    if (ownedProjects.some(item => item.id !== project?.id && item.name.toLowerCase() === name.toLowerCase())) {
+      setErrors({ name: "You already have a project with this name." });
+      return;
+    }
+    setBusy(true);
+    try {
+      await onSubmit({ name, description: draft.description.trim() });
+      onClose();
+    } catch (error) {
+      const fields = error instanceof ApiError ? error.fields : {};
+      setErrors({
+        name: fields.project_name,
+        description: fields.description,
+        form: fields.project_name || fields.description ? undefined : message(error),
+      });
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Modal title={editing ? "Edit project" : "Create a project"} description={editing ? "Rename the project or update its description." : "Group related tasks into a project."}
+        icon={editing ? <FolderPen size={22} /> : <FolderPlus size={22} />} busy={busy} onClose={requestClose}>
+        <form noValidate onSubmit={submit}>
+          <div className="modal-body">
+            <Field label="Project name" error={errors.name}>
+              {control => <input {...control} className="input" autoFocus maxLength={LIMIT} value={draft.name} placeholder="e.g. Mobile app launch"
+                onChange={event => { setDraft(current => ({ ...current, name: event.target.value })); setErrors({}); }} />}
+            </Field>
+            <Field label="Description" optional hint={`${draft.description.length}/${LIMIT} characters`} error={errors.description}>
+              {control => <textarea {...control} className="textarea" rows={3} maxLength={LIMIT} value={draft.description} placeholder="What is this project about?"
+                onChange={event => { setDraft(current => ({ ...current, description: event.target.value })); setErrors({}); }} />}
+            </Field>
+            {errors.form && <p className="form-error" role="alert">{errors.form}</p>}
+          </div>
+          <footer className="modal-footer">
+            <button type="button" className="btn btn-secondary" disabled={busy} onClick={requestClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              {busy ? <><Loader2 size={16} className="spin" aria-hidden="true" />{editing ? "Saving…" : "Creating…"}</> : editing ? "Save changes" : "Create project"}
+            </button>
+          </footer>
+        </form>
+      </Modal>
+      {confirmDiscard && <ConfirmDialog onClose={() => setConfirmDiscard(false)} request={{
+        title: "Discard changes?",
+        message: "You have unsaved changes to this project. If you leave now they will be lost.",
+        confirmLabel: "Discard changes",
+        onConfirm: onClose,
+      }} />}
+    </>
+  );
 }
-
-
