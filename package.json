@@ -1,0 +1,13 @@
+{
+  "name": "stt-frontend",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix simple-task-tracker run dev",
+    "build": "npm --prefix simple-task-tracker run build",
+    "start": "npm --prefix simple-task-tracker run start",
+    "lint": "npm --prefix simple-task-tracker run lint",
+    "test": "npm --prefix simple-task-tracker run test",
+    "test:e2e": "npm --prefix simple-task-tracker run test:e2e",
+    "install:app": "npm --prefix simple-task-tracker install"
+  }
+}
